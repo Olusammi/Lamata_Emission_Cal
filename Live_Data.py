@@ -20,18 +20,25 @@ def get_onedrive_direct(sharing_url):
 
 @st.cache_data(ttl=3600)
 def load_data(link):
-    """Streams Parquet data which is much lighter than CSV"""
     direct_url = get_onedrive_direct(link)
-    # Using engine='fastparquet' or 'pyarrow'
-    df = pd.read_parquet(direct_url)
     
-    # 1. Clean Bus IDs (Logic from trip_count.py)
+    # Custom headers to make the request look like a browser
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
+    with st.spinner("Streaming large data file from cloud..."):
+        # Stream the content to avoid connection timeouts
+        response = requests.get(direct_url, headers=headers, stream=True)
+        response.raise_for_status()
+        
+        # Wrap the content in a BytesIO buffer so Pandas can read it as a file
+        f = io.BytesIO(response.content)
+        df = pd.read_parquet(f, engine='pyarrow') # 'pyarrow' is faster for large files
+    
+    # Process using your existing cleaning logic
     df['busID'] = df['busID'].astype(str).str.replace(r'^(FM|PM|C|F|G)(\d+.*)', r'0\2', regex=True)
-    
-    # 2. Date Formatting (Logic from Combined_Summary.py)
     df['transDate_NG'] = pd.to_datetime(df['transDate_NG'])
-    df['date'] = df['transDate_NG'].dt.date
-    df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
     return df
 
 # --- DASHBOARD UI ---
@@ -69,3 +76,4 @@ with tab2:
     bus_summary = df.groupby(['busID', 'date']).size().reset_index(name='ridership')
     bus_summary['est_trips'] = (bus_summary['ridership'] / 55).round(2) 
     st.dataframe(bus_summary.sort_values(by='ridership', ascending=False), use_container_width=True)
+
