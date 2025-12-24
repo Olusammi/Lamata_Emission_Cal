@@ -2,16 +2,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import base64
+import requests  # <--- THIS WAS MISSING
 import io
+import pytz
 
 # --- CONFIGURATION ---
-# Replace with your NEW OneDrive link for the .parquet file
 ONEDRIVE_PARQUET_LINK = "https://lamatang-my.sharepoint.com/:u:/g/personal/shassan_lamata-ng_com/IQAD9TAa_S16RYQ5nBiopzHyAX8BnYrKjhMdZaf3TE2b4qI?e=PIFVQR"
 
-st.set_page_config(page_title="LAMATA High-Volume Ops", layout="wide")
+st.set_page_config(page_title="LAMATA Master Analytics", layout="wide")
 
 def get_onedrive_direct(sharing_url):
-    """Encodes the link for direct API access"""
     try:
         encoded = base64.b64encode(bytes(sharing_url, 'utf-8'))
         encoded_str = encoded.decode('utf-8').replace('/','_').replace('+','-').rstrip("=")
@@ -21,59 +21,54 @@ def get_onedrive_direct(sharing_url):
 @st.cache_data(ttl=3600)
 def load_data(link):
     direct_url = get_onedrive_direct(link)
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
-    # Custom headers to make the request look like a browser
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    
-    with st.spinner("Streaming large data file from cloud..."):
-        # Stream the content to avoid connection timeouts
+    with st.spinner("Streaming & Optimizing 600MB File..."):
         response = requests.get(direct_url, headers=headers, stream=True)
         response.raise_for_status()
         
-        # Wrap the content in a BytesIO buffer so Pandas can read it as a file
+        # Load into memory buffer
         f = io.BytesIO(response.content)
-        df = pd.read_parquet(f, engine='pyarrow') # 'pyarrow' is faster for large files
+        
+        # OPTIMIZATION: Only load necessary columns to save RAM 
+        # This prevents the 600MB file from becoming 3GB in memory
+        needed_cols = ['issuerName', 'routeName', 'transDate_NG', 'amount', 'busID', 'id']
+        df = pd.read_parquet(f, columns=needed_cols, engine='pyarrow')
     
-    # Process using your existing cleaning logic
+    # Logic from trip_count.py: Clean Bus IDs
     df['busID'] = df['busID'].astype(str).str.replace(r'^(FM|PM|C|F|G)(\d+.*)', r'0\2', regex=True)
+    
+    # Logic from Combined_Summary.py: Date formatting
     df['transDate_NG'] = pd.to_datetime(df['transDate_NG'])
+    df['date'] = df['transDate_NG'].dt.date
+    df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
+    
     return df
 
-# --- DASHBOARD UI ---
-st.title("🚌 LAMATA Master Analytics (High-Volume)")
+# --- MAIN APP ---
+st.title("🚌 LAMATA Unified Operations Dashboard")
 
-if ONEDRIVE_PARQUET_LINK == "PASTE_YOUR_PARQUET_LINK_HERE":
-    st.info("Please convert your 600MB CSV to Parquet and paste the link to avoid memory crashes.")
-    st.stop()
+if ONEDRIVE_PARQUET_LINK != "PASTE_YOUR_PARQUET_LINK_HERE":
+    df = load_data(ONEDRIVE_PARQUET_LINK)
 
-df = load_data(ONEDRIVE_PARQUET_LINK)
+    # Multi-Metric Summary (Logic from your py files)
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Ridership", f"{len(df):,}")
+    m2.metric("Total Revenue", f"₦{df['amount'].sum():,.2f}")
+    m3.metric("Buses Active", f"{df['busID'].nunique()}")
 
-# --- MULTI-METRIC SUMMARY ---
-m1, m2, m3 = st.columns(3)
-m1.metric("Total Ridership", f"{len(df):,}") # Summary logic
-m2.metric("Total Revenue", f"₦{df['amount'].sum():,.2f}") # Summary logic
-m3.metric("Buses Active", df['busID'].nunique()) # Summary logic
+    tab1, tab2 = st.tabs(["Performance", "Trip Analytics"])
+    
+    with tab1:
+        # Combined_Summary logic
+        summary = df.groupby(['issuerName', 'routeName', 'date']).agg({
+            'amount': 'sum', 'id': 'count'
+        }).reset_index()
+        st.dataframe(summary, use_container_width=True)
 
-tab1, tab2 = st.tabs(["Route Performance", "Trip Calculations"])
-
-with tab1:
-    # Aggregation from Combined_Summary.py
-    st.subheader("Revenue & Ridership Summary")
-    summary = df.groupby(['issuerName', 'routeName', 'date']).agg({
-        'amount': 'sum',
-        'id': 'size',
-        'busID': 'nunique'
-    }).reset_index()
-    summary.columns = ['Operator', 'Route', 'Date', 'Revenue', 'Ridership', 'Buses']
-    st.dataframe(summary, use_container_width=True)
-
-with tab2:
-    # Trip Count Logic from trip_count.py
-    st.subheader("Calculated Trips (Capacity Based)")
-    # Defaulting to HC (55) for general view, but you can apply the full mapping
-    bus_summary = df.groupby(['busID', 'date']).size().reset_index(name='ridership')
-    bus_summary['est_trips'] = (bus_summary['ridership'] / 55).round(2) 
-    st.dataframe(bus_summary.sort_values(by='ridership', ascending=False), use_container_width=True)
-
+    with tab2:
+        # trip_count logic
+        bus_trips = df.groupby(['busID', 'date']).size().reset_index(name='trips')
+        st.dataframe(bus_trips, use_container_width=True)
+else:
+    st.info("Please enter your OneDrive Parquet link.")
