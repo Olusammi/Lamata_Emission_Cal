@@ -205,3 +205,15 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# --- LAMATA Custom Ignores ---
+# Ignore the scraped data folders from your script
+output/
+scraped_*/
+error_dates.txt
+
+# Ignore all CSV files (transaction logs)
+*.csv
+
+# Ignore local Streamlit secrets (use Cloud Secrets instead)
+.streamlit/
