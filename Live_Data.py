@@ -5,19 +5,26 @@ import requests
 import json
 import pytz
 from datetime import datetime, timedelta
-import time
 
-# --- 1. CONFIGURATION & SECRETS ---
+# =========================
+# CONFIGURATION
+# =========================
 STEM = "https://rahq.tapdev.site:3443/"
 USERNAME = st.secrets["USERNAME"]
 PASSWORD = st.secrets["PASSWORD"]
+
 BATCH_SIZE_V = 50000
 BATCH_SIZE_H = 2000
 
-st.set_page_config(page_title="LAMATA Ops Center", layout="wide", page_icon="📊")
+st.set_page_config(
+    page_title="LAMATA Ops Center",
+    layout="wide",
+    page_icon="📊"
+)
 
-# --- 2. CORE DATA ENGINE (SCRAPER LOGIC) ---
-
+# =========================
+# AUTH
+# =========================
 @st.cache_data(ttl=3600)
 def get_token(user, pwd):
     payload = json.dumps({"data": {"username": user, "password": pwd}})
@@ -25,131 +32,220 @@ def get_token(user, pwd):
     res = requests.post(f"{STEM}v1/api/auth", headers=headers, data=payload)
     return res.json()['content']['token']
 
-def fetch_data(token, start_dt, end_dt, mode="Validator"):
-    """Combined fetcher for both Validator and Handheld modules"""
-    headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token}
-    all_data = []
+# =========================
+# DATA FETCHER (SCOPED)
+# =========================
+def fetch_data(token, start_dt, end_dt, mode, operators=None, routes=None):
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {token}'
+    }
+
+    frames = []
     page = 0 if mode == "Validator" else "-"
     _action = "-"
-    fetching = True
-    
-    while fetching:
+
+    while True:
         if mode == "Validator":
             query = f"{STEM}v3/admin/get/bustransactions/-/-/{int(start_dt.timestamp())}/{int(end_dt.timestamp())}/{BATCH_SIZE_V}/{page}"
-        else: # Handheld
-            query = f"{STEM}v2/admin/get/transactions/6/-/-/-/-/{int(start_dt.timestamp())}/{int(end_dt.timestamp())}/{BATCH_SIZE_H}/{page}/{_action}"
-            
-        res = requests.get(query, headers=headers).json()
-        batch = res['content']['data']
-        
-        if not batch:
-            fetching = False
         else:
-            all_data.extend(batch)
-            if mode == "Validator":
-                if len(batch) == BATCH_SIZE_V: page += 1
-                else: fetching = False
-            else: # Handheld pagination
-                if len(batch) == BATCH_SIZE_H:
-                    page = res['content']['lastPage']
-                    _action = 0
-                else: fetching = False
-    return pd.DataFrame(all_data)
+            query = f"{STEM}v2/admin/get/transactions/6/-/-/-/-/{int(start_dt.timestamp())}/{int(end_dt.timestamp())}/{BATCH_SIZE_H}/{page}/{_action}"
 
-# --- 3. ANALYTICS LOGIC (TRIP COUNT & SUMMARY) ---
+        res = requests.get(query, headers=headers).json()
+        batch = res["content"]["data"]
 
+        if not batch:
+            break
+
+        df = pd.DataFrame(batch)
+
+        # ---- EARLY FILTERING ----
+        if operators and "issuerName" in df:
+            df = df[df["issuerName"].isin(operators)]
+
+        if routes and "routeName" in df:
+            df = df[df["routeName"].isin(routes)]
+
+        frames.append(df)
+
+        if mode == "Validator":
+            if len(batch) < BATCH_SIZE_V:
+                break
+            page += 1
+        else:
+            if len(batch) < BATCH_SIZE_H:
+                break
+            page = res["content"]["lastPage"]
+            _action = 0
+
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+# =========================
+# ANALYTICS / NORMALIZATION
+# =========================
 def process_analytics(df):
-    """Integrates logic from Combined_Summary.py and trip_count.py"""
-    if df.empty: return df
-    
-    # Cleaning & Timezone (Lagos)
-    df['transDate_NG'] = pd.to_datetime(df['transDate'], unit='s').dt.tz_localize('UTC').dt.tz_convert('Africa/Lagos')
-    df['date'] = df['transDate_NG'].dt.date
-    df['amount'] = pd.to_numeric(df['amount'], errors='coerce')
-    
-    # Bus Capacity Mapping from trip_count.py
-    capacity_map = {"FLM X30": 7, "FLM X30L": 10, "Midi": 40, "HC": 55}
-    # (Abbreviated mapping for brevity - add your full issuer list here)
-    
+    if df.empty:
+        return df
+
+    df["transDate_NG"] = (
+        pd.to_datetime(df["transDate"], unit="s")
+        .dt.tz_localize("UTC")
+        .dt.tz_convert("Africa/Lagos")
+    )
+    df["date"] = df["transDate_NG"].dt.date
+    df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0)
+
     return df
 
-# --- 4. SIDEBAR & NAVIGATION ---
+# =========================
+# CAPACITY & TRIP LOGIC
+# =========================
+def prepare_bus_mapping():
+    capacity = {
+        "FLM X30": 7,
+        "FLM X30L": 10,
+        "Midi": 40,
+        "HC": 55
+    }
 
+    issuer_to_type = {
+        # abbreviated — extend freely
+        "APEC INTEGRATED - FLM": "FLM X30",
+        "CITY CRUISE & LOGISTICS LTD - X30L - FLM": "FLM X30L",
+        "TSL Metroline Limited - MIDI": "Midi",
+        "Primero Transport Services Limited - HC": "HC"
+    }
+
+    return issuer_to_type, capacity
+
+def add_trip_calculations(df):
+    issuer_map, cap_map = prepare_bus_mapping()
+
+    df["bus_type"] = df["issuerName"].map(issuer_map).fillna("Unknown")
+    df["seat_capacity"] = df["bus_type"].map(cap_map).fillna(0)
+
+    df["trips"] = np.divide(
+        df["ridership"],
+        df["seat_capacity"],
+        out=np.zeros_like(df["ridership"], dtype=float),
+        where=df["seat_capacity"] != 0
+    ).round(2)
+
+    return df
+
+# =========================
+# SIDEBAR CONTROLS
+# =========================
 st.sidebar.title("🎮 Command Center")
-tab_selection = st.sidebar.radio("Go to:", ["Live Monitor", "Operational Summary", "Trip Analytics"])
 
-# Date Picker
-today = datetime.now(pytz.timezone("Africa/Lagos"))
-date_range = st.sidebar.date_input("Select Date Range", [today - timedelta(days=1), today])
+module = st.sidebar.selectbox(
+    "Data Source",
+    ["Validator", "Handheld", "Both"]
+)
 
-# Refresh Controls
-st.sidebar.markdown("---")
-auto_refresh = st.sidebar.toggle("Live Mode (Auto-Refresh)", value=False)
-refresh_rate = st.sidebar.slider("Interval (s)", 60, 600, 300) if auto_refresh else None
+output_type = st.sidebar.selectbox(
+    "Output Type",
+    ["Raw Transactions", "Operator Summary", "Trip Summary"]
+)
 
-# --- 5. MAIN DASHBOARD TABS ---
+tz = pytz.timezone("Africa/Lagos")
+today = datetime.now(tz)
 
-@st.fragment(run_every=refresh_rate)
-def run_app():
-    token = get_token(USERNAME, PASSWORD)
-    
-    # Fetch both modules
-    with st.spinner("Fetching Validator & Handheld Data..."):
-        tz = pytz.timezone("Africa/Lagos")
-        start_ts = tz.localize(datetime.combine(date_range[0], datetime.min.time()))
-        end_ts = tz.localize(datetime.combine(date_range[1], datetime.max.time()))
-        
-        v_df = fetch_data(token, start_ts, end_ts, "Validator")
-        h_df = fetch_data(token, start_ts, end_ts, "Handheld")
-        
-        # Merge modules like your MergeDailyTrxnFiles_2.py logic
-        df = pd.concat([v_df, h_df], ignore_index=True)
-        df = process_analytics(df)
+date_range = st.sidebar.date_input(
+    "Date Range",
+    [today - timedelta(days=1), today]
+)
 
-    if df.empty:
-        st.warning("No data found for selected range.")
-        return
+# =========================
+# MAIN EXECUTION
+# =========================
+token = get_token(USERNAME, PASSWORD)
 
-    # Dynamic Global Filters
-    operators = st.multiselect("Filter by Operator", options=df['issuerName'].unique())
-    routes = st.multiselect("Filter by Route", options=df['routeName'].unique())
-    
-    filtered_df = df.copy()
-    if operators: filtered_df = filtered_df[filtered_df['issuerName'].isin(operators)]
-    if routes: filtered_df = filtered_df[filtered_df['routeName'].isin(routes)]
+start_ts = tz.localize(datetime.combine(date_range[0], datetime.min.time()))
+end_ts = tz.localize(datetime.combine(date_range[1], datetime.max.time()))
 
-    # TAB 1: LIVE MONITOR
-    if tab_selection == "Live Monitor":
-        st.header("⚡ Real-Time Stream")
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Total Ridership", f"{len(filtered_df):,}")
-        m2.metric("Total Revenue", f"₦{filtered_df['amount'].sum():,.2f}")
-        m3.metric("Active Buses", filtered_df['busID'].nunique())
-        
-        st.subheader("Latest Transactions")
-        st.dataframe(filtered_df[['transDate_NG', 'issuerName', 'routeName', 'amount']].tail(50), use_container_width=True)
+with st.spinner("Fetching data from API..."):
+    dfs = []
 
-    # TAB 2: OPERATIONAL SUMMARY
-    elif tab_selection == "Operational Summary":
-        st.header("📈 Route Performance (Monthly View)")
-        # Grouping logic from Combined_Summary.py
-        summary = filtered_df.groupby(['issuerName', 'routeName', 'date']).agg({
-            'amount': 'sum',
-            'id': 'count',
-            'busID': 'nunique'
-        }).reset_index()
-        summary.columns = ['Operator', 'Route', 'Date', 'Revenue', 'Ridership', 'Buses']
-        st.dataframe(summary, use_container_width=True)
-        
-        st.download_button("Download Summary CSV", summary.to_csv(index=False), "summary.csv")
+    if module in ["Validator", "Both"]:
+        dfs.append(fetch_data(token, start_ts, end_ts, "Validator"))
 
-    # TAB 3: TRIP ANALYTICS
-    elif tab_selection == "Trip Analytics":
-        st.header("🚌 Trip & Capacity Utilization")
-        # Logic from trip_count.py
-        st.info("Trip calculations are based on assigned bus seat capacities.")
-        # (Insert your full capacity mapping logic here to show trip efficiency)
-        st.write("Route-wise Trip Efficiency")
-        st.bar_chart(filtered_df.groupby('routeName')['amount'].sum())
+    if module in ["Handheld", "Both"]:
+        dfs.append(fetch_data(token, start_ts, end_ts, "Handheld"))
 
-run_app()
+    df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+    df = process_analytics(df)
+
+if df.empty:
+    st.warning("No data found for selected options.")
+    st.stop()
+
+# =========================
+# GLOBAL FILTERS
+# =========================
+operators = st.multiselect(
+    "Filter Operator",
+    options=sorted(df["issuerName"].dropna().unique())
+)
+
+routes = st.multiselect(
+    "Filter Route",
+    options=sorted(df["routeName"].dropna().unique())
+)
+
+if operators:
+    df = df[df["issuerName"].isin(operators)]
+
+if routes:
+    df = df[df["routeName"].isin(routes)]
+
+# =========================
+# OUTPUT VIEWS
+# =========================
+if output_type == "Raw Transactions":
+    st.header("📄 Raw Transactions")
+    st.dataframe(df, use_container_width=True)
+
+elif output_type == "Operator Summary":
+    st.header("📊 Operator Summary")
+
+    summary = (
+        df.groupby(["issuerName", "routeName", "date"])
+          .agg(
+              revenue=("amount", "sum"),
+              ridership=("id", "count"),
+              buses=("busID", "nunique")
+          )
+          .reset_index()
+    )
+
+    st.dataframe(summary, use_container_width=True)
+    st.download_button(
+        "Download CSV",
+        summary.to_csv(index=False),
+        "operator_summary.csv"
+    )
+
+elif output_type == "Trip Summary":
+    st.header("🚌 Trip & Capacity Summary")
+
+    trip_df = (
+        df.groupby(["issuerName", "routeName", "date"])
+          .agg(
+              revenue=("amount", "sum"),
+              ridership=("id", "count"),
+              buses=("busID", "nunique")
+          )
+          .reset_index()
+    )
+
+    trip_df = add_trip_calculations(trip_df)
+
+    st.dataframe(trip_df, use_container_width=True)
+    st.bar_chart(trip_df.groupby("routeName")["trips"].sum())
+
+    st.download_button(
+        "Download CSV",
+        trip_df.to_csv(index=False),
+        "trip_summary.csv"
+    )
