@@ -1,0 +1,8 @@
+Route_Name,Bus_ID,Operator,Bus_Category,Fuel_Type,Route_Distance_km,Ridership,Revenue_Trip
+Ikorodu-TBS,HC-001,Iru Transport,High Capacity,Diesel,35,85,True
+Ikorodu-TBS,HC-002,Iru Transport,High Capacity,CNG,35,82,True
+Oshodi-Abule Egba,MD-105,Galaxy Pharma,Midi,Diesel,14,40,True
+Oshodi-Abule Egba,MD-106,Galaxy Pharma,Midi,CNG,14,45,True
+Marina-Victoria Island,MN-201,Elizabeth Mak,Mini,Petrol,8,14,True
+Marina-Victoria Island,MN-202,Elizabeth Mak,Mini,CNG,8,12,True
+Depot-Ikorodu,HC-001,Iru Transport,High Capacity,Diesel,15,0,False
