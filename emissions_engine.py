@@ -1,7 +1,6 @@
 import pandas as pd
-import numpy as np
 
-# Multi-Pollutant Base Factors (grams per kilometer at baseline speed ~30 km/h)
+# Base Factors for LAMATA Fleet
 BASE_FACTORS = {
     "High Capacity": {
         "Diesel": {"CO2": 1200.0, "NOx": 6.0, "PM": 0.22},
@@ -22,20 +21,14 @@ BASE_FACTORS = {
 }
 
 def get_speed_modifier(speed, pollutant):
-    """Applies a speed-dependent correction factor mimicking COPERT curves."""
-    if speed <= 0:
-        return 2.5  # Heavy idling penalty
-    
-    if pollutant == "CO2":
-        # U-shaped curve: least efficient at extreme low/high speeds
+    if speed <= 0: return 2.5
+    if pollutant == "CO2": 
         return 1.0 + (30.0 / speed) * 0.1 if speed < 30 else 1.0 + (speed / 30.0) * 0.05
-    elif pollutant in ["NOx", "PM"]:
-        # Local air pollutants spike drastically in stop-and-go congestion
+    elif pollutant in ["NOx", "PM"]: 
         return max(0.5, 3.5 - (speed / 12.0))
     return 1.0
 
-def calculate_fleet_emissions(row, methodology, target_pollutants):
-    """Calculates emissions based on the chosen regulatory methodology framework."""
+def calculate_row(row, methodology, target_pollutants):
     bus_type = row.get('Bus_Category')
     fuel = row.get('Fuel_Type')
     distance = row.get('Route_Distance_km', 0)
@@ -44,41 +37,20 @@ def calculate_fleet_emissions(row, methodology, target_pollutants):
     is_revenue = row.get('Revenue_Trip', True)
     
     results = {}
-    
-    # Extract baseline options safely
-    bus_profiles = BASE_FACTORS.get(bus_type, {})
-    fuel_profile = bus_profiles.get(fuel, {"CO2": 1000.0, "NOx": 4.0, "PM": 0.1})
+    fuel_profile = BASE_FACTORS.get(bus_type, {}).get(fuel, {"CO2": 1000.0, "NOx": 4.0, "PM": 0.1})
     
     for pol in ['CO2', 'NOx', 'PM']:
         if pol not in target_pollutants:
-            results[f'{pol}_Total_kg'] = 0.0
-            results[f'{pol}_per_Passenger_g'] = 0.0
+            results[f'{pol}_kg'] = 0.0
+            results[f'{pol}_g_pkm'] = 0.0
             continue
             
-        base_factor = fuel_profile.get(pol, 0.0)
+        base = fuel_profile.get(pol, 0.0)
+        # Apply the methodology rules
+        modifier = 1.0 if methodology == "IPCC" or (methodology == "Hybrid" and pol == "CO2") else get_speed_modifier(speed, pol)
+        final_factor = base * modifier
         
-        # Apply methodology logic shifts
-        if methodology == "IPCC":
-            # Tier 1: Fixed factor, speed-independent
-            final_factor = base_factor
-        elif methodology == "COPERT":
-            # Tier 3: Full speed dependency across all metrics
-            final_factor = base_factor * get_speed_modifier(speed, pol)
-        elif methodology == "Hybrid":
-            # Lagos Hybrid: Stable top-down CO2, dynamic speed-based local air quality indicators
-            if pol == "CO2":
-                final_factor = base_factor
-            else:
-                final_factor = base_factor * get_speed_modifier(speed, pol)
-        
-        # Absolute emissions (g to kg conversions)
-        total_mass_kg = (final_factor * distance) / 1000.0
-        results[f'{pol}_Total_kg'] = total_mass_kg
-        
-        # Efficiency indicators
-        if is_revenue and ridership > 0:
-            results[f'{pol}_per_Passenger_g'] = final_factor / ridership
-        else:
-            results[f'{pol}_per_Passenger_g'] = 0.0
+        results[f'{pol}_kg'] = (final_factor * distance) / 1000.0
+        results[f'{pol}_g_pkm'] = final_factor / ridership if is_revenue else 0.0
             
     return pd.Series(results)
