@@ -1,40 +1,84 @@
 import pandas as pd
+import numpy as np
 
-# Baseline CO2 emission factors (grams per km)
-EMISSION_FACTORS = {
+# Multi-Pollutant Base Factors (grams per kilometer at baseline speed ~30 km/h)
+BASE_FACTORS = {
     "High Capacity": {
-        "Diesel": 1200.0,
-        "CNG": 950.0,
-        "Electric": 0.0,
-        "Biogas": 150.0 
+        "Diesel": {"CO2": 1200.0, "NOx": 6.0, "PM": 0.22},
+        "CNG": {"CO2": 950.0, "NOx": 2.5, "PM": 0.02},
+        "Electric": {"CO2": 0.0, "NOx": 0.0, "PM": 0.0},
+        "Biogas": {"CO2": 150.0, "NOx": 2.2, "PM": 0.02}
     },
     "Midi": {
-        "Diesel": 800.0,
-        "CNG": 600.0,
-        "Electric": 0.0
+        "Diesel": {"CO2": 800.0, "NOx": 4.2, "PM": 0.15},
+        "CNG": {"CO2": 600.0, "NOx": 1.8, "PM": 0.01},
+        "Electric": {"CO2": 0.0, "NOx": 0.0, "PM": 0.0}
     },
     "Mini": {
-        "Petrol": 350.0,
-        "Diesel": 400.0,
-        "CNG": 280.0
+        "Petrol": {"CO2": 350.0, "NOx": 0.4, "PM": 0.005},
+        "Diesel": {"CO2": 400.0, "NOx": 1.5, "PM": 0.04},
+        "CNG": {"CO2": 280.0, "NOx": 0.3, "PM": 0.001}
     }
 }
 
-def calculate_row_emissions(row):
-    """Calculates total and per-passenger emissions for a single trip record."""
+def get_speed_modifier(speed, pollutant):
+    """Applies a speed-dependent correction factor mimicking COPERT curves."""
+    if speed <= 0:
+        return 2.5  # Heavy idling penalty
+    
+    if pollutant == "CO2":
+        # U-shaped curve: least efficient at extreme low/high speeds
+        return 1.0 + (30.0 / speed) * 0.1 if speed < 30 else 1.0 + (speed / 30.0) * 0.05
+    elif pollutant in ["NOx", "PM"]:
+        # Local air pollutants spike drastically in stop-and-go congestion
+        return max(0.5, 3.5 - (speed / 12.0))
+    return 1.0
+
+def calculate_fleet_emissions(row, methodology, target_pollutants):
+    """Calculates emissions based on the chosen regulatory methodology framework."""
     bus_type = row.get('Bus_Category')
     fuel = row.get('Fuel_Type')
     distance = row.get('Route_Distance_km', 0)
-    ridership = row.get('Ridership', 1) 
+    speed = row.get('Avg_Speed_kmh', 25)
+    ridership = max(1, row.get('Ridership', 1))
     is_revenue = row.get('Revenue_Trip', True)
     
-    factor_g_per_km = EMISSION_FACTORS.get(bus_type, {}).get(fuel, 1000.0)
+    results = {}
     
-    total_co2_kg = (factor_g_per_km * distance) / 1000.0
+    # Extract baseline options safely
+    bus_profiles = BASE_FACTORS.get(bus_type, {})
+    fuel_profile = bus_profiles.get(fuel, {"CO2": 1000.0, "NOx": 4.0, "PM": 0.1})
     
-    if is_revenue and ridership > 0:
-        co2_per_passenger_g = factor_g_per_km / ridership
-    else:
-        co2_per_passenger_g = 0.0 
+    for pol in ['CO2', 'NOx', 'PM']:
+        if pol not in target_pollutants:
+            results[f'{pol}_Total_kg'] = 0.0
+            results[f'{pol}_per_Passenger_g'] = 0.0
+            continue
+            
+        base_factor = fuel_profile.get(pol, 0.0)
         
-    return pd.Series([total_co2_kg, co2_per_passenger_g])
+        # Apply methodology logic shifts
+        if methodology == "IPCC":
+            # Tier 1: Fixed factor, speed-independent
+            final_factor = base_factor
+        elif methodology == "COPERT":
+            # Tier 3: Full speed dependency across all metrics
+            final_factor = base_factor * get_speed_modifier(speed, pol)
+        elif methodology == "Hybrid":
+            # Lagos Hybrid: Stable top-down CO2, dynamic speed-based local air quality indicators
+            if pol == "CO2":
+                final_factor = base_factor
+            else:
+                final_factor = base_factor * get_speed_modifier(speed, pol)
+        
+        # Absolute emissions (g to kg conversions)
+        total_mass_kg = (final_factor * distance) / 1000.0
+        results[f'{pol}_Total_kg'] = total_mass_kg
+        
+        # Efficiency indicators
+        if is_revenue and ridership > 0:
+            results[f'{pol}_per_Passenger_g'] = final_factor / ridership
+        else:
+            results[f'{pol}_per_Passenger_g'] = 0.0
+            
+    return pd.Series(results)
