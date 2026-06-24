@@ -1,8 +1,11 @@
-Route_Name,Bus_ID,Operator,Bus_Category,Fuel_Type,Route_Distance_km,Ridership,Revenue_Trip
-Ikorodu-TBS,HC-001,Iru Transport,High Capacity,Diesel,35,85,True
-Ikorodu-TBS,HC-002,Iru Transport,High Capacity,CNG,35,82,True
-Oshodi-Abule Egba,MD-105,Galaxy Pharma,Midi,Diesel,14,40,True
-Oshodi-Abule Egba,MD-106,Galaxy Pharma,Midi,CNG,14,45,True
-Marina-Victoria Island,MN-201,Elizabeth Mak,Mini,Petrol,8,14,True
-Marina-Victoria Island,MN-202,Elizabeth Mak,Mini,CNG,8,12,True
-Depot-Ikorodu,HC-001,Iru Transport,High Capacity,Diesel,15,0,False
+Date,Route_Name,Bus_ID,Operator,Bus_Category,Fuel_Type,Route_Distance_km,Avg_Speed_kmh,Ridership,Revenue_Trip
+2026-06-20,Ikorodu-TBS,HC-001,Iru Transport,High Capacity,Diesel,35.2,14,85,True
+2026-06-20,Ikorodu-TBS,HC-002,Iru Transport,High Capacity,CNG,35.2,28,82,True
+2026-06-21,Oshodi-Abule Egba,MD-105,Galaxy Pharma,Midi,Diesel,14.5,11,40,True
+2026-06-21,Oshodi-Abule Egba,MD-106,Galaxy Pharma,Midi,CNG,14.5,22,45,True
+2026-06-22,Marina-Victoria Island,MN-201,Elizabeth Mak,Mini,Petrol,8.0,18,14,True
+2026-06-22,Marina-Victoria Island,MN-202,Elizabeth Mak,Mini,CNG,8.0,25,12,True
+2026-06-23,Ikorodu-TBS,HC-003,Iru Transport,High Capacity,Electric,35.2,24,90,True
+2026-06-23,Oshodi-Abule Egba,MD-107,Galaxy Pharma,Midi,Electric,14.5,19,50,True
+2026-06-24,Berger-Yaba,HC-004,Iru Transport,High Capacity,Biogas,21.0,15,70,True
+2026-06-24,Depot-Ikorodu,HC-001,Iru Transport,High Capacity,Diesel,15.0,45,0,False
