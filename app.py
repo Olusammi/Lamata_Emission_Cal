@@ -21,6 +21,38 @@ st.set_page_config(
 )
 
 # ════════════════════════════════════════════════════════
+# 0.5. AUTHENTICATION
+# ════════════════════════════════════════════════════════
+def check_password():
+    """Returns True if the user has a valid password."""
+    # Check if user is already logged in during this session
+    if st.session_state.get("authenticated", False):
+        return True
+
+    # Show the login form
+    st.markdown("## 🔐 LAMATA Emissions Portal Login")
+    with st.form("login_form"):
+        username = st.text_input("Username").strip()
+        password = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Login")
+
+        if submitted:
+            # Check if the username exists in secrets and password matches
+            if "credentials" in st.secrets and username in st.secrets["credentials"]:
+                if st.secrets["credentials"][username] == password:
+                    st.session_state["authenticated"] = True
+                    st.rerun()  # Refresh page to bypass login
+                else:
+                    st.error("Incorrect password.")
+            else:
+                st.error("Unknown username.")
+    return False
+
+# Stop the app execution here if the user isn't logged in
+if not check_password():
+    st.stop()
+
+# ════════════════════════════════════════════════════════
 # 1. GLOBAL CSS  — premium dark-navy sidebar + clean main
 # ════════════════════════════════════════════════════════
 # ── Theme toggle (must be before CSS injection) ──
