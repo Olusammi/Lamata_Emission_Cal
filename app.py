@@ -15,7 +15,7 @@ from emissions_engine import calculate_row, emission_breakdown, compliance_flag
 # ════════════════════════════════════════════════════════
 st.set_page_config(
     page_title="LAMATA Emissions Portal",
-    page_icon="🚌",
+    page_icon="ido2tL42k3_1782393500014.ico",
     layout="wide",
     initial_sidebar_state="expanded"
 )
