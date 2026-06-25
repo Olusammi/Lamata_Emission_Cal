@@ -441,7 +441,7 @@ with st.sidebar:
 if not uploaded_file:
     st.markdown("""
     <div class="empty">
-        <div class="icon">🚌</div>
+        <div class="icon">ido2tL42k3_1782393500014.png</div>
         <h2>LAMATA Emissions Portal</h2>
         <p>Upload your route manifest CSV in the sidebar to activate all six modules.
         Required columns: <code>Date</code> <code>Route_Name</code> <code>Bus_ID</code>
