@@ -307,7 +307,7 @@ def load_and_calc(fbytes, method, pollutants):
     import io
     df = pd.read_csv(io.BytesIO(fbytes))
     if "Date" in df.columns:
-        df["Date"] = pd.to_datetime(df["Date"]).dt.date
+        df["Date"] = pd.to_datetime(df["Date"], errors='coerce').dt.date
     missing = [c for c in EXPECTED_COLS if c not in df.columns]
     if missing:
         return None, missing
