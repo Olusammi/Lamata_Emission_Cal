@@ -141,7 +141,7 @@ st.markdown(f"""
 :root {{ {_css_vars} }}
 
 /* ── chrome ── */
-#MainMenu, footer {{ visibility: hidden; }}
+#MainMenu, footer, header {{ visibility: hidden; }}
 div[data-testid="stSidebarNav"] {{ display: none; }}
 html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
 
