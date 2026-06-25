@@ -341,7 +341,7 @@ with st.sidebar:
         <div style="display:flex;align-items:center;gap:11px;">
             <div style="width:38px;height:38px;background:linear-gradient(135deg,#1a73e8,#0a3d8f);
                         border-radius:10px;display:flex;align-items:center;justify-content:center;
-                        font-size:20px;flex-shrink:0;">🚌</div>
+                        font-size:20px;flex-shrink:0;">ido2tL42k3_1782393500014.png</div>
             <div>
                 <div style="font-size:15px;font-weight:600;color:#e8f2ff;letter-spacing:0.02em;">LAMATA</div>
                 <div style="font-size:11px;color:#4a7fa8;margin-top:1px;">Emissions Portal v3</div>
@@ -441,7 +441,7 @@ with st.sidebar:
 if not uploaded_file:
     st.markdown("""
     <div class="empty">
-        <div class="icon">ido2tL42k3_1782393500014.png</div>
+        <div class="icon">🚌</div>
         <h2>LAMATA Emissions Portal</h2>
         <p>Upload your route manifest CSV in the sidebar to activate all six modules.
         Required columns: <code>Date</code> <code>Route_Name</code> <code>Bus_ID</code>
