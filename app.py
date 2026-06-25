@@ -302,18 +302,99 @@ if not uploaded_file:
     </div>""", unsafe_allow_html=True)
     st.stop()
 
-@st.cache_data(show_spinner="Calculating emissions…", ttl=300)
+def _fuzzy_rename(df: pd.DataFrame, required: list, optional: list) -> tuple:
+    """
+    Column-order-independent loader with fuzzy name matching.
+
+    Strategy (applied in order, stops at first match per target):
+      1. Exact match            — 'Bus_Category'  == 'Bus_Category'
+      2. Case-insensitive       — 'bus_category'  → 'Bus_Category'
+      3. Strip spaces/dashes    — 'Bus Category'  → 'Bus_Category'
+      4. Common abbreviations   — 'dist'          → 'Route_Distance_km'
+      5. Substring match        — 'distance'      → 'Route_Distance_km'
+
+    Returns (renamed_df, auto_renames_dict, still_missing_list)
+    """
+    import re
+
+    ALIASES = {
+        "Bus_Category":       ["bus_type","category","bus_size","vehicle_type","type"],
+        "Fuel_Type":          ["fuel","fueltype","energy_source","propulsion"],
+        "Route_Distance_km":  ["distance","dist","km","route_km","distance_km","trip_distance"],
+        "Avg_Speed_kmh":      ["speed","avg_speed","average_speed","speed_kmh"],
+        "Ridership":          ["passengers","pax","riders","passenger_count","boardings"],
+        "Revenue_Trip":       ["revenue","is_revenue","paid_trip","commercial"],
+        "Route_Name":         ["route","routename","line","route_id"],
+        "Bus_ID":             ["bus","vehicle_id","vehicle","fleet_id","bus_no","plate"],
+        "Operator":           ["company","operator_name","fleet_operator","owner"],
+        "Date":               ["trip_date","date_of_trip","service_date","day"],
+        "Euro_Standard":      ["euro","euro_class","emission_standard","euro_norm","standard"],
+        "Vehicle_Age_years":  ["age","vehicle_age","age_years","bus_age","years_old"],
+        "AC_Status":          ["ac","air_conditioning","aircon","has_ac","ac_on"],
+        "Num_Trips_Today":    ["trips","daily_trips","trips_today","num_trips","trip_count"],
+        "Engine_Model":       ["engine","motor","engine_type","engine_name","powerunit"],
+    }
+
+    def normalise(s):
+        return re.sub(r"[\s\-/]", "_", str(s)).lower().strip("_")
+
+    csv_cols   = list(df.columns)
+    norm_map   = {normalise(c): c for c in csv_cols}   # normalised → original csv name
+    rename_map = {}   # original csv name → canonical target name
+    auto_log   = {}   # canonical → original (for user feedback)
+
+    for target in (required + optional):
+        if target in csv_cols:
+            continue   # exact match, nothing to do
+
+        norm_target = normalise(target)
+        matched = None
+
+        # 1. case-insensitive / spacing normalise
+        if norm_target in norm_map:
+            matched = norm_map[norm_target]
+
+        # 2. alias list
+        if not matched:
+            for alias in ALIASES.get(target, []):
+                if alias in norm_map:
+                    matched = norm_map[alias]
+                    break
+
+        # 3. substring: csv col contains target keyword or vice-versa
+        if not matched:
+            kw = norm_target.split("_")[0]   # e.g. "route" from "route_distance_km"
+            for nc, oc in norm_map.items():
+                if kw in nc or nc in norm_target:
+                    matched = oc
+                    break
+
+        if matched and matched not in rename_map:
+            rename_map[matched] = target
+            auto_log[target]    = matched
+
+    df = df.rename(columns=rename_map)
+    still_missing = [c for c in required if c not in df.columns]
+    return df, auto_log, still_missing
+
+
+@st.cache_data(show_spinner="Reading and matching columns…", ttl=300)
 def load_and_calc(fbytes, method, pollutants):
     import io
     df = pd.read_csv(io.BytesIO(fbytes))
+
+    # ── Smart column matching ──
+    df, auto_log, still_missing = _fuzzy_rename(df, EXPECTED_COLS, NEW_COLS)
+
+    if still_missing:
+        return None, still_missing, {}, df.columns.tolist()
+
     if "Date" in df.columns:
-        df["Date"] = pd.to_datetime(df["Date"], errors='coerce').dt.date
-    missing = [c for c in EXPECTED_COLS if c not in df.columns]
-    if missing:
-        return None, missing
-    # Fill optional new columns with defaults if absent
+        df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
+
+    # Fill optional new columns with sensible defaults if absent
     defaults = {
-        "Euro_Standard":    "Euro III",
+        "Euro_Standard":     "Euro III",
         "Vehicle_Age_years": 5,
         "AC_Status":         True,
         "Num_Trips_Today":   6,
@@ -322,21 +403,67 @@ def load_and_calc(fbytes, method, pollutants):
     for col, val in defaults.items():
         if col not in df.columns:
             df[col] = val
+
     results = df.apply(lambda r: calculate_row(r, method, pollutants), axis=1)
     df = pd.concat([df, results], axis=1)
     if "CO2" in pollutants:
         df["Compliance"] = df.apply(
-            lambda r: compliance_flag(float(r.get("CO2_g_pkm",0)), r["Bus_Category"]), axis=1)
+            lambda r: compliance_flag(float(r.get("CO2_g_pkm", 0)), r["Bus_Category"]), axis=1)
     else:
         df["Compliance"] = "N/A"
-    return df, []
+
+    return df, [], auto_log, []
+
 
 file_bytes = uploaded_file.read()
-df, missing = load_and_calc(file_bytes, methodology, target_pollutants)
+result = load_and_calc(file_bytes, methodology, target_pollutants)
+df, missing, auto_log, csv_cols = result
 
 if df is None:
-    st.error(f"❌ Missing required columns: **{', '.join(missing)}**")
+    # ── Rich diagnostic error UI ──
+    st.markdown("### ❌ Column mismatch — here's what to fix")
+    st.markdown(
+        f'<div class="banner">The app found <strong>{len(csv_cols)}</strong> columns in your CSV '
+        f'but could not resolve <strong>{len(missing)}</strong> required column(s) even after '
+        f'fuzzy matching. Column <em>order</em> does not matter — only the names need to match '
+        f'(case-insensitive, spaces/dashes are normalised automatically).</div>',
+        unsafe_allow_html=True)
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.markdown("**Your CSV columns**")
+        for c in csv_cols:
+            st.markdown(f"- `{c}`")
+    with col_b:
+        st.markdown("**Could not resolve (rename these)**")
+        FIX_HINT = {
+            "Date":              "e.g. `Date`, `trip_date`, `service_date`",
+            "Route_Name":        "e.g. `Route_Name`, `route`, `line`",
+            "Bus_ID":            "e.g. `Bus_ID`, `bus_no`, `vehicle_id`",
+            "Operator":          "e.g. `Operator`, `company`, `owner`",
+            "Bus_Category":      "e.g. `Bus_Category`, `bus_type`, `category`",
+            "Fuel_Type":         "e.g. `Fuel_Type`, `fuel`, `propulsion`",
+            "Route_Distance_km": "e.g. `Route_Distance_km`, `distance`, `km`",
+            "Avg_Speed_kmh":     "e.g. `Avg_Speed_kmh`, `speed`, `avg_speed`",
+            "Ridership":         "e.g. `Ridership`, `passengers`, `pax`",
+            "Revenue_Trip":      "e.g. `Revenue_Trip`, `revenue`, `is_revenue`",
+        }
+        for m in missing:
+            hint = FIX_HINT.get(m, "see documentation")
+            st.markdown(f"- **`{m}`** — {hint}")
+
+    st.info("💡 Tip: column order doesn't matter at all — you can arrange them however suits your data pipeline.")
     st.stop()
+
+# ── Notify user of any auto-renames ──
+if auto_log:
+    rename_chips = " &nbsp;" .join(
+        f'<code style="font-size:11px;background:#fef9c3;color:#78350f;padding:2px 7px;border-radius:4px;">{orig}</code> → <code style="font-size:11px;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:4px;">{canon}</code>'
+        for canon, orig in auto_log.items()
+    )
+    st.markdown(
+        f'<div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:#78350f;"><strong>🔄 Auto-matched {len(auto_log)} column name(s):</strong>&nbsp; {rename_chips}</div>',
+        unsafe_allow_html=True)
 if not target_pollutants:
     st.warning("Select at least one pollutant in the sidebar.")
     st.stop()
