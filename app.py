@@ -23,136 +23,242 @@ st.set_page_config(
 # ════════════════════════════════════════════════════════
 # 1. GLOBAL CSS  — premium dark-navy sidebar + clean main
 # ════════════════════════════════════════════════════════
-st.markdown("""
+# ── Theme toggle (must be before CSS injection) ──
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+_theme = st.session_state.theme
+_is_dark = (_theme == "dark")
+
+# CSS variable sets
+_dark_vars = """
+    --bg-app:      #07111f;
+    --bg-main:     #0d1b2a;
+    --bg-card:     #0e1f31;
+    --bg-card2:    #112236;
+    --border:      #1a3350;
+    --border2:     #1e3d5c;
+    --text-prim:   #e8f2ff;
+    --text-sec:    #8aaac8;
+    --text-tert:   #5070a0;
+    --accent:      #4facfe;
+    --accent2:     #1a73e8;
+    --sidebar-bg:  #07111f;
+    --metric-bg:   #0e1f31;
+    --metric-bdr:  #1a3350;
+    --metric-val:  #e8f2ff;
+    --metric-lbl:  #6a90b8;
+    --banner-bg:   linear-gradient(135deg,#0f3460 0%,#0a1f3a 100%);
+    --banner-bdr:  #1a3d5c;
+    --banner-text: #c8dff5;
+    --banner-code-bg: rgba(79,172,254,0.12);
+    --banner-code:    #7fc8ff;
+    --tip-bg:      #0a2a1a;
+    --tip-bdr:     #1a5c30;
+    --tip-text:    #7ad4a0;
+    --tip-strong:  #4ade80;
+    --badge-good-bg:  #0a3320; --badge-good-text:  #4ade80;
+    --badge-mon-bg:   #2a1a00; --badge-mon-text:   #fbbf24;
+    --badge-over-bg:  #2a0808; --badge-over-text:  #f87171;
+    --filter-bg:   #1a2a10;   --filter-bdr: #2a5020; --filter-text: #8acc60;
+    --autorename-bg:  #1a1a00; --autorename-bdr: #3a3a00; --autorename-text: #c8c060;
+    --expander-bg: #0e1f31;
+    --table-bdr:   #1a3350;
+"""
+_light_vars = """
+    --bg-app:      #f4f6fb;
+    --bg-main:     #ffffff;
+    --bg-card:     #ffffff;
+    --bg-card2:    #f8faff;
+    --border:      #dde5f5;
+    --border2:     #c8d8f0;
+    --text-prim:   #0f1923;
+    --text-sec:    #4a5c78;
+    --text-tert:   #8a9ab8;
+    --accent:      #1a73e8;
+    --accent2:     #0d5cbf;
+    --sidebar-bg:  #07111f;
+    --metric-bg:   #ffffff;
+    --metric-bdr:  #e0e8f5;
+    --metric-val:  #0f1923;
+    --metric-lbl:  #7a8599;
+    --banner-bg:   linear-gradient(135deg,#1a4a9c 0%,#0d2d6b 100%);
+    --banner-bdr:  #2a5aaa;
+    --banner-text: #ddeeff;
+    --banner-code-bg: rgba(255,255,255,0.15);
+    --banner-code:    #c8e8ff;
+    --tip-bg:      #f0fdf4;
+    --tip-bdr:     #bbf7d0;
+    --tip-text:    #14532d;
+    --tip-strong:  #166534;
+    --badge-good-bg:  #dcfce7; --badge-good-text:  #15803d;
+    --badge-mon-bg:   #fef9c3; --badge-mon-text:   #92400e;
+    --badge-over-bg:  #fee2e2; --badge-over-text:  #b91c1c;
+    --filter-bg:   #fefce8;   --filter-bdr: #fde68a; --filter-text: #78350f;
+    --autorename-bg:  #fefce8; --autorename-bdr: #fde68a; --autorename-text: #78350f;
+    --expander-bg: #f8faff;
+    --table-bdr:   #dde5f5;
+"""
+
+_css_vars = _dark_vars if _is_dark else _light_vars
+
+st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
-/* ── chrome ── */
-#MainMenu, footer, header { visibility: hidden; }
-div[data-testid="stSidebarNav"] { display: none; }
-html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+:root {{ {_css_vars} }}
 
-/* ── sidebar shell ── */
-section[data-testid="stSidebar"] > div:first-child {
-    background: #07111f;
+/* ── chrome ── */
+#MainMenu, footer, header {{ visibility: hidden; }}
+div[data-testid="stSidebarNav"] {{ display: none; }}
+html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
+
+/* ── main background ── */
+.stApp {{ background: var(--bg-app) !important; }}
+section[data-testid="stMain"] > div {{ background: var(--bg-app) !important; }}
+
+/* ── sidebar ── */
+section[data-testid="stSidebar"] > div:first-child {{
+    background: var(--sidebar-bg) !important;
     border-right: 1px solid #14283f;
     padding-top: 0 !important;
-}
-section[data-testid="stSidebar"] * { color: #b8cce0 !important; }
-
-/* ── sidebar file uploader ── */
+}}
+section[data-testid="stSidebar"] * {{ color: #b8cce0 !important; }}
 section[data-testid="stSidebar"] .stFileUploader label,
-section[data-testid="stSidebar"] .stFileUploader small { color: #6a85a3 !important; font-size:11px !important; }
-section[data-testid="stSidebar"] .stFileUploader [data-testid="stFileUploaderDropzone"] {
+section[data-testid="stSidebar"] .stFileUploader small {{ color: #6a85a3 !important; font-size:11px !important; }}
+section[data-testid="stSidebar"] .stFileUploader [data-testid="stFileUploaderDropzone"] {{
     background: #0e1f31 !important; border-color: #1e3a55 !important; border-radius: 8px !important;
-}
-
-/* ── sidebar selectbox / multiselect ── */
+}}
 section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div,
-section[data-testid="stSidebar"] .stMultiSelect div[data-baseweb="select"] > div {
-    background: #0e1f31 !important; border-color: #1e3a55 !important; border-radius: 8px !important;
-    font-size: 12px !important;
-}
+section[data-testid="stSidebar"] .stMultiSelect div[data-baseweb="select"] > div {{
+    background: #0e1f31 !important; border-color: #1e3a55 !important; border-radius: 8px !important; font-size: 12px !important;
+}}
 
 /* ── nav menu ── */
-.nav-link { border-radius: 8px !important; margin: 1px 0 !important; font-size:13px !important; }
-.nav-link-selected { background: #0f3460 !important; color: #4facfe !important; }
-.nav-link:hover { background: #0d2137 !important; }
+.nav-link {{ border-radius: 8px !important; margin: 1px 0 !important; font-size:13px !important; }}
+.nav-link-selected {{ background: #0f3460 !important; color: #4facfe !important; }}
+.nav-link:hover {{ background: #0d2137 !important; }}
+
+/* ── main text colours ── */
+h1, h2, h3, h4, h5, h6 {{ color: var(--text-prim) !important; }}
+p, li, span, div {{ color: var(--text-sec); }}
+.stMarkdown p {{ color: var(--text-sec); }}
+label, .stSelectbox label, .stMultiSelect label {{ color: var(--text-sec) !important; }}
 
 /* ── metric cards ── */
-div[data-testid="metric-container"] {
-    background: #ffffff;
-    border: 1px solid #e8edf5;
-    border-radius: 14px;
-    padding: 18px 20px 14px !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-}
-div[data-testid="stMetricLabel"] > div  { font-size: 11px !important; color: #7a8599 !important; font-weight:500 !important; letter-spacing:0.04em; text-transform:uppercase; }
-div[data-testid="stMetricValue"] > div  { font-size: 28px !important; color: #0f1923 !important; font-weight:600 !important; letter-spacing:-0.5px; }
-div[data-testid="stMetricDelta"]        { font-size: 12px !important; }
+div[data-testid="metric-container"] {{
+    background: var(--metric-bg) !important;
+    border: 1px solid var(--metric-bdr) !important;
+    border-radius: 14px; padding: 18px 20px 14px !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}}
+div[data-testid="stMetricLabel"] > div  {{ font-size: 11px !important; color: var(--metric-lbl) !important; font-weight:500 !important; letter-spacing:0.04em; text-transform:uppercase; }}
+div[data-testid="stMetricValue"] > div  {{ font-size: 28px !important; color: var(--metric-val) !important; font-weight:600 !important; letter-spacing:-0.5px; }}
+div[data-testid="stMetricDelta"]        {{ font-size: 12px !important; }}
 
-/* ── info / section banners ── */
-.banner {
-    background: linear-gradient(135deg, #0f3460 0%, #0a1f3a 100%);
-    color: #c8dff5 !important;
-    border-radius: 12px;
-    padding: 14px 20px;
-    font-size: 13px;
-    line-height: 1.65;
-    margin-bottom: 18px;
-    border: 1px solid #1a3d5c;
-}
-.banner strong { color: #4facfe !important; }
-.banner code   { background: rgba(79,172,254,0.12); color: #7fc8ff !important; padding: 1px 6px; border-radius:4px; font-size:11px; }
+/* ── banner ── */
+.banner {{
+    background: var(--banner-bg);
+    color: var(--banner-text) !important;
+    border-radius: 12px; padding: 14px 20px;
+    font-size: 13px; line-height: 1.65; margin-bottom: 18px;
+    border: 1px solid var(--banner-bdr);
+}}
+.banner strong {{ color: var(--accent) !important; }}
+.banner code   {{ background: var(--banner-code-bg); color: var(--banner-code) !important;
+                  padding: 1px 6px; border-radius:4px; font-size:11px; }}
 
-/* ── filter chip bar ── */
-.chip-bar { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
-.chip {
-    display:inline-flex; align-items:center; gap:5px;
-    padding: 5px 12px; border-radius:20px;
-    font-size: 12px; font-weight:500; cursor:pointer;
-    border: 1.5px solid transparent;
-    transition: all 0.15s;
-}
-.chip-blue   { background:#e8f2ff; color:#1a5fac; border-color:#aac9f0; }
-.chip-green  { background:#eaf4e0; color:#2a6916; border-color:#9dcc72; }
-.chip-amber  { background:#fef4e0; color:#7a4a06; border-color:#f0c060; }
-.chip-red    { background:#fee8e8; color:#8b1a1a; border-color:#f09090; }
-.chip-purple { background:#f0ecff; color:#3d1a8c; border-color:#b09de0; }
-.chip-teal   { background:#e0f5f0; color:#0a5040; border-color:#70cbb8; }
-.chip-gray   { background:#f0f2f5; color:#4a5568; border-color:#c8d0dc; }
+/* ── chip bar ── */
+.chip {{ display:inline-flex; align-items:center; gap:5px; padding: 5px 12px; border-radius:20px;
+         font-size: 12px; font-weight:500; cursor:pointer; border: 1.5px solid transparent; }}
+.chip-blue   {{ background:#1a3460; color:#7fc0ff; border-color:#2a5090; }}
+.chip-green  {{ background:#0a2a18; color:#6ec87a; border-color:#1a5a30; }}
+.chip-amber  {{ background:#2a1a00; color:#f0b040; border-color:#5a3a00; }}
+.chip-red    {{ background:#2a0808; color:#f08080; border-color:#5a1818; }}
+.chip-gray   {{ background:#1a2a3a; color:#8aaac0; border-color:#2a3a4a; }}
 
 /* ── compliance badges ── */
-.badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
-.badge-good    { background:#dcfce7; color:#15803d; }
-.badge-monitor { background:#fef9c3; color:#92400e; }
-.badge-over    { background:#fee2e2; color:#b91c1c; }
-.badge-na      { background:#f1f5f9; color:#64748b; }
+.badge {{ display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }}
+.badge-good    {{ background: var(--badge-good-bg); color: var(--badge-good-text); }}
+.badge-monitor {{ background: var(--badge-mon-bg);  color: var(--badge-mon-text); }}
+.badge-over    {{ background: var(--badge-over-bg); color: var(--badge-over-text); }}
+.badge-na      {{ background: #1a2a3a; color: #6a8aaa; }}
 
 /* ── kpi accent cards ── */
-.kpi-accent {
-    border-radius: 14px; padding: 16px 18px;
-    border: 1px solid #e2e8f0;
-    background: #fff;
-}
-.kpi-accent .val  { font-size:26px; font-weight:600; color:#0f1923; letter-spacing:-0.5px; line-height:1.2; }
-.kpi-accent .lbl  { font-size:11px; color:#7a8599; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }
-.kpi-accent .sub  { font-size:12px; color:#8a94a8; margin-top:4px; }
-.kpi-accent .dot  { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+.kpi-accent {{ border-radius: 14px; padding: 16px 18px;
+               border: 1px solid var(--border); background: var(--bg-card); }}
+.kpi-accent .val {{ font-size:26px; font-weight:600; color:var(--text-prim); letter-spacing:-0.5px; line-height:1.2; }}
+.kpi-accent .lbl {{ font-size:11px; color:var(--text-tert); font-weight:500; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }}
+.kpi-accent .sub {{ font-size:12px; color:var(--text-sec); margin-top:4px; }}
 
-/* ── section divider with label ── */
-.sec-label {
+/* ── section divider ── */
+.sec-label {{
     font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase;
-    color:#9aa5bb; margin: 22px 0 10px; display:flex; align-items:center; gap:10px;
-}
-.sec-label::after { content:''; flex:1; height:1px; background:#e8edf5; }
-
-/* ── plotly override ── */
-.js-plotly-plot .plotly .main-svg { background: transparent !important; }
-
-/* ── table ── */
-div[data-testid="stDataFrame"] { border-radius:12px; overflow:hidden; border:1px solid #e8edf5; }
-
-/* ── tab styling ── */
-div[data-testid="stTabs"] button { font-size:13px !important; }
+    color:var(--text-tert); margin: 22px 0 10px; display:flex; align-items:center; gap:10px;
+}}
+.sec-label::after {{ content:''; flex:1; height:1px; background:var(--border); }}
 
 /* ── tip cards ── */
-.tip { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:11px 14px; margin-bottom:8px; font-size:12px; color:#14532d; line-height:1.6; }
-.tip strong { color:#166534; }
+.tip {{ background:var(--tip-bg); border:1px solid var(--tip-bdr); border-radius:10px;
+        padding:11px 14px; margin-bottom:8px; font-size:12px; color:var(--tip-text); line-height:1.6; }}
+.tip strong {{ color: var(--tip-strong); }}
 
 /* ── breakdown bar ── */
-.brow { display:flex; align-items:center; gap:10px; margin-bottom:9px; }
-.brow .lbl  { font-size:11px; color:#7a8599; width:90px; flex-shrink:0; }
-.brow .bg   { flex:1; height:7px; background:#f0f2f7; border-radius:4px; overflow:hidden; }
-.brow .fill { height:100%; border-radius:4px; }
-.brow .val  { font-size:12px; font-weight:600; color:#0f1923; width:62px; text-align:right; flex-shrink:0; }
+.brow {{ display:flex; align-items:center; gap:10px; margin-bottom:9px; }}
+.brow .lbl {{ font-size:11px; color:var(--text-sec); width:90px; flex-shrink:0; }}
+.brow .bg  {{ flex:1; height:7px; background:var(--bg-card2); border-radius:4px; overflow:hidden; }}
+.brow .fill {{ height:100%; border-radius:4px; }}
+.brow .val {{ font-size:12px; font-weight:600; color:var(--text-prim); width:62px; text-align:right; flex-shrink:0; }}
+
+/* ── active filter bar ── */
+.filter-bar {{
+    background: var(--filter-bg); border:1px solid var(--filter-bdr);
+    border-radius:10px; padding:10px 14px; margin-bottom:14px;
+    font-size:12px; color:var(--filter-text);
+}}
+
+/* ── auto-rename bar ── */
+.autorename-bar {{
+    background: var(--autorename-bg); border:1px solid var(--autorename-bdr);
+    border-radius:10px; padding:10px 16px; margin-bottom:12px;
+    font-size:12px; color:var(--autorename-text);
+}}
+
+/* ── expanders ── */
+div[data-testid="stExpander"] {{ background: var(--expander-bg) !important;
+    border: 1px solid var(--border) !important; border-radius: 10px !important; }}
+div[data-testid="stExpander"] summary span {{ color: var(--text-prim) !important; }}
+
+/* ── dataframe ── */
+div[data-testid="stDataFrame"] {{ border-radius:12px; overflow:hidden; border:1px solid var(--table-bdr); }}
+
+/* ── buttons ── */
+.stButton > button {{ border-radius: 8px !important; font-size: 12px !important; }}
+
+/* ── tabs ── */
+div[data-testid="stTabs"] button {{ font-size:13px !important; color: var(--text-sec) !important; }}
+div[data-testid="stTabs"] button[aria-selected="true"] {{ color: var(--accent) !important; }}
 
 /* ── empty state ── */
-.empty { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:58vh; text-align:center; gap:14px; }
-.empty .icon { font-size:52px; }
-.empty h2 { font-size:22px; font-weight:600; color:#0f1923; }
-.empty p  { font-size:14px; color:#6b7a94; max-width:440px; line-height:1.7; }
-.empty code { font-size:11px; background:#f0f4fa; color:#3451a1; padding:2px 7px; border-radius:4px; }
+.empty {{ display:flex; flex-direction:column; align-items:center; justify-content:center;
+          min-height:58vh; text-align:center; gap:14px; }}
+.empty .icon {{ font-size:52px; }}
+.empty h2 {{ font-size:22px; font-weight:600; color:var(--text-prim); }}
+.empty p  {{ font-size:14px; color:var(--text-sec); max-width:440px; line-height:1.7; }}
+.empty code {{ font-size:11px; background:var(--bg-card2); color:var(--accent); padding:2px 7px; border-radius:4px; }}
+
+/* ── plotly transparent ── */
+.js-plotly-plot .plotly .main-svg {{ background: transparent !important; }}
+
+/* ── operator table cards ── */
+.op-card {{
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 8px;
+}}
+.op-card .op-name {{ font-size:13px; font-weight:600; color:var(--text-prim); margin-bottom:4px; }}
+.op-card .op-meta {{ font-size:11px; color:var(--text-sec); }}
+.op-bar-bg {{ background:var(--bg-card2); border-radius:4px; height:6px; margin-top:6px; overflow:hidden; }}
+.op-bar    {{ height:100%; border-radius:4px; background: var(--accent2); }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -212,7 +318,22 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+    # Theme toggle
+    col_tog1, col_tog2 = st.columns([1,1])
+    with col_tog1:
+        if st.button("☀️ Light" if _is_dark else "☀️ Light",
+                     key="tog_light", use_container_width=True,
+                     type="secondary"):
+            st.session_state.theme = "light"
+            st.rerun()
+    with col_tog2:
+        if st.button("🌙 Dark" if not _is_dark else "🌙 Dark",
+                     key="tog_dark", use_container_width=True,
+                     type="primary" if _is_dark else "secondary"):
+            st.session_state.theme = "dark"
+            st.rerun()
+
+    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 
     selected_module = option_menu(
         menu_title=None,
@@ -378,25 +499,88 @@ def _fuzzy_rename(df: pd.DataFrame, required: list, optional: list) -> tuple:
     return df, auto_log, still_missing
 
 
-@st.cache_data(show_spinner="Reading and matching columns…", ttl=300)
+@st.cache_data(show_spinner="Reading and calculating emissions…", ttl=300)
 def load_and_calc(fbytes, method, pollutants):
     import io
-    df = pd.read_csv(io.BytesIO(fbytes))
 
-    # ── Smart column matching ──
+    # ── 1. Encoding: handle UTF-8 BOM (Excel CSVs) and latin-1 fallback ──
+    df = None
+    for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
+        try:
+            df = pd.read_csv(io.BytesIO(fbytes), encoding=enc)
+            break
+        except Exception:
+            continue
+    if df is None:
+        return None, ["FILE_ENCODING"], {}, []
+
+    # ── 2. Strip BOM from column names (safety net) ──
+    df.columns = [c.lstrip("\ufeff").strip() for c in df.columns]
+
+    # ── 3. Fuzzy column matching ──
     df, auto_log, still_missing = _fuzzy_rename(df, EXPECTED_COLS, NEW_COLS)
-
     if still_missing:
         return None, still_missing, {}, df.columns.tolist()
 
-    if "Date" in df.columns:
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce").dt.date
+    # ── 4. Clean operator names (leading/trailing spaces) ──
+    if "Operator" in df.columns:
+        df["Operator"] = df["Operator"].astype(str).str.strip()
 
-    # Fill optional new columns with sensible defaults if absent
+    # ── 5. Date parsing — try DD/MM/YYYY first, then auto-detect ──
+    if "Date" in df.columns:
+        parsed = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
+        if parsed.isna().mean() > 0.5:
+            parsed = pd.to_datetime(df["Date"], errors="coerce")
+        df["Date"] = parsed.dt.date
+
+    # ── 6. Revenue_Trip: numeric = revenue amount in Naira, rename and set bool True ──
+    if "Revenue_Trip" in df.columns:
+        sample = pd.to_numeric(df["Revenue_Trip"].iloc[:20], errors="coerce").dropna()
+        if len(sample) > 0 and sample.mean() > 10:
+            df = df.rename(columns={"Revenue_Trip": "Revenue_Naira"})
+            df["Revenue_Trip"] = True
+        else:
+            df["Revenue_Trip"] = df["Revenue_Trip"].astype(str).str.lower() \
+                .isin(["true", "1", "yes", "t"])
+
+    # ── 7. Bus_Category: normalise short codes to canonical names ──
+    CAT_MAP = {
+        "hc": "High Capacity", "high capacity": "High Capacity",
+        "midi": "Midi", "mid": "Midi",
+        "mini": "Mini",
+        "flm": "Midi", "flm x30l": "Midi", "x30l": "Midi",
+        "unknown": "High Capacity",
+    }
+    if "Bus_Category" in df.columns:
+        df["Bus_Category"] = df["Bus_Category"].astype(str).str.strip() \
+            .str.lower().map(lambda x: CAT_MAP.get(x, "High Capacity"))
+
+    # ── 8. Fuel_Type: normalise aliases (PMS = petrol) ──
+    FUEL_MAP = {
+        "pms": "Petrol", "petrol": "Petrol", "gasoline": "Petrol",
+        "diesel": "Diesel", "cng": "CNG", "electric": "Electric",
+        "ev": "Electric", "biogas": "Biogas", "hybrid": "Hybrid",
+    }
+    if "Fuel_Type" in df.columns:
+        df["Fuel_Type"] = df["Fuel_Type"].astype(str).str.strip() \
+            .str.lower().map(lambda x: FUEL_MAP.get(x, x.title()))
+
+    # ── 9. Num_Trips_Today: real data has fractional values, floor to int ──
+    if "Num_Trips_Today" in df.columns:
+        df["Num_Trips_Today"] = pd.to_numeric(df["Num_Trips_Today"], errors="coerce") \
+            .fillna(1).clip(lower=0).round().astype(int)
+        df["Num_Trips_Today"] = df["Num_Trips_Today"].replace(0, 1)
+
+    # ── 10. Numeric coercion for key fields ──
+    for col in ["Route_Distance_km", "Avg_Speed_kmh", "Ridership", "Vehicle_Age_years"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+    # ── 11. Fill optional new columns with sensible defaults if absent ──
     defaults = {
         "Euro_Standard":     "Euro III",
         "Vehicle_Age_years": 5,
-        "AC_Status":         True,
+        "AC_Status":         False,
         "Num_Trips_Today":   6,
         "Engine_Model":      "",
     }
@@ -404,11 +588,14 @@ def load_and_calc(fbytes, method, pollutants):
         if col not in df.columns:
             df[col] = val
 
+    # ── 12. Calculate emissions ──
     results = df.apply(lambda r: calculate_row(r, method, pollutants), axis=1)
     df = pd.concat([df, results], axis=1)
+
     if "CO2" in pollutants:
         df["Compliance"] = df.apply(
-            lambda r: compliance_flag(float(r.get("CO2_g_pkm", 0)), r["Bus_Category"]), axis=1)
+            lambda r: compliance_flag(float(r.get("CO2_g_pkm", 0) or 0), r["Bus_Category"]),
+            axis=1)
     else:
         df["Compliance"] = "N/A"
 
@@ -530,58 +717,87 @@ if selected_module == "Dashboard":
 
     st.markdown('<div class="sec-label">Filter by attribute — click to drill down</div>', unsafe_allow_html=True)
 
-    # ── Operator chips ──
-    st.markdown("**Operators**")
-    ops = sorted(df["Operator"].unique())
-    op_cols = st.columns(len(ops))
-    for i, op in enumerate(ops):
-        active = st.session_state.active_operator == op
-        if op_cols[i].button(
-            ("✓ " if active else "") + op,
-            key=f"op_{op}",
-            type="primary" if active else "secondary",
-            use_container_width=True
-        ):
-            st.session_state.active_operator = None if active else op
-            st.rerun()
-
-    # ── Euro standard chips ──
-    euros = sorted(df["Euro_Standard"].unique())
-    st.markdown("**Euro standard**")
-    euro_cols = st.columns(len(euros))
-    for i, eu in enumerate(euros):
-        active = st.session_state.active_euro == eu
-        if euro_cols[i].button(
-            ("✓ " if active else "") + eu,
-            key=f"eu_{eu}",
-            type="primary" if active else "secondary",
-            use_container_width=True
-        ):
-            st.session_state.active_euro = None if active else eu
-            st.rerun()
-
-    # ── Fuel type + Category chips ──
-    c_fuel, c_cat = st.columns(2)
-    with c_fuel:
-        st.markdown("**Fuel type**")
+    # ── Quick-filter row: Euro · Fuel · Category (chips, small set) ──
+    chip_r1, chip_r2, chip_r3 = st.columns(3)
+    with chip_r1:
+        st.markdown('<div style="font-size:11px;color:var(--text-tert);font-weight:500;'
+                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;">Euro standard</div>',
+                    unsafe_allow_html=True)
+        euros = sorted(df["Euro_Standard"].unique())
+        for eu in euros:
+            is_active = st.session_state.active_euro == eu
+            if st.button(("✓ " if is_active else "") + eu, key=f"eu_{eu}",
+                         type="primary" if is_active else "secondary", use_container_width=True):
+                st.session_state.active_euro = None if is_active else eu
+                st.rerun()
+    with chip_r2:
+        st.markdown('<div style="font-size:11px;color:var(--text-tert);font-weight:500;'
+                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;">Fuel type</div>',
+                    unsafe_allow_html=True)
         fuels = sorted(df["Fuel_Type"].unique())
-        fc = st.columns(min(len(fuels), 5))
-        for i, fu in enumerate(fuels):
-            active = st.session_state.active_fuel == fu
-            if fc[i].button(("✓ " if active else "") + fu, key=f"fu_{fu}",
-                            type="primary" if active else "secondary", use_container_width=True):
-                st.session_state.active_fuel = None if active else fu
+        for fu in fuels:
+            is_active = st.session_state.active_fuel == fu
+            if st.button(("✓ " if is_active else "") + fu, key=f"fu_{fu}",
+                         type="primary" if is_active else "secondary", use_container_width=True):
+                st.session_state.active_fuel = None if is_active else fu
                 st.rerun()
-    with c_cat:
-        st.markdown("**Bus category**")
+    with chip_r3:
+        st.markdown('<div style="font-size:11px;color:var(--text-tert);font-weight:500;'
+                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;">Bus category</div>',
+                    unsafe_allow_html=True)
         cats = sorted(df["Bus_Category"].unique())
-        cc = st.columns(min(len(cats), 4))
-        for i, ca in enumerate(cats):
-            active = st.session_state.active_category == ca
-            if cc[i].button(("✓ " if active else "") + ca, key=f"ca_{ca}",
-                            type="primary" if active else "secondary", use_container_width=True):
-                st.session_state.active_category = None if active else ca
+        for ca in cats:
+            is_active = st.session_state.active_category == ca
+            if st.button(("✓ " if is_active else "") + ca, key=f"ca_{ca}",
+                         type="primary" if is_active else "secondary", use_container_width=True):
+                st.session_state.active_category = None if is_active else ca
                 st.rerun()
+
+    # ── Operator selector: searchable dropdown for large fleets ──
+    st.markdown('<div class="sec-label">Operator drill-down</div>', unsafe_allow_html=True)
+    ops_all   = sorted(df["Operator"].unique())
+    op_search = st.text_input("🔍 Search operators", placeholder="Type operator name…",
+                               key="op_search_box", label_visibility="collapsed")
+    ops_shown = [o for o in ops_all if op_search.lower() in o.lower()] if op_search else ops_all
+
+    # Operator CO2 summary for the rank bars
+    op_co2_map = {}
+    if "CO2_kg" in df.columns:
+        op_co2_map = df.groupby("Operator")["CO2_kg"].sum().to_dict()
+    max_co2 = max(op_co2_map.values(), default=1)
+
+    # Render operator cards in a scrollable container
+    op_html = '<div style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;">'
+    for op in ops_shown[:60]:  # cap at 60 for performance
+        is_sel = st.session_state.active_operator == op
+        co2_v  = op_co2_map.get(op, 0)
+        pct    = co2_v / max_co2 * 100 if max_co2 > 0 else 0
+        trips  = int(df[df["Operator"]==op].shape[0])
+        highlight = "border-color:var(--accent);box-shadow:0 0 0 1.5px var(--accent);" if is_sel else ""
+        op_html += f"""
+        <div class="op-card" style="{highlight}cursor:pointer;" onclick="window.parent.postMessage({{type:'streamlit:setComponentValue',value:'{op}'}}, '*')">
+            <div class="op-name">{"✓ " if is_sel else ""}{op}</div>
+            <div class="op-meta">{trips} trips · {co2_v:,.0f} kg CO₂</div>
+            <div class="op-bar-bg"><div class="op-bar" style="width:{pct:.1f}%;"></div></div>
+        </div>"""
+    op_html += "</div>"
+    st.markdown(op_html, unsafe_allow_html=True)
+
+    # Streamlit-native operator selector (functional fallback)
+    op_choice = st.selectbox(
+        "Select operator to filter",
+        ["(none)"] + ops_shown,
+        index=0 if st.session_state.active_operator not in ops_shown
+              else ops_shown.index(st.session_state.active_operator) + 1,
+        key="op_selectbox",
+        label_visibility="collapsed",
+    )
+    if op_choice != "(none)" and op_choice != st.session_state.active_operator:
+        st.session_state.active_operator = op_choice
+        st.rerun()
+    elif op_choice == "(none)" and st.session_state.active_operator:
+        st.session_state.active_operator = None
+        st.rerun()
 
     st.markdown('<div class="sec-label">Emission overview</div>', unsafe_allow_html=True)
 
@@ -1008,9 +1224,11 @@ elif selected_module == "Trip Inspector":
                 marker_colors=nz_c,
                 textinfo="percent", textfont_size=11,
             ))
-            fig.update_layout(**PLY_BASE, title="Source split", title_font_size=13,
+            ply_pie = dict(PLY_BASE)
+            ply_pie.pop("legend", None)
+            fig.update_layout(**ply_pie, title="Source split", title_font_size=13,
                               showlegend=True,
-                              legend=dict(orientation="v",x=1.02,y=0.5))
+                              legend=dict(orientation="v", x=1.02, y=0.5))
             st.plotly_chart(fig, use_container_width=True)
 
         # Correction factors applied
@@ -1051,8 +1269,15 @@ elif selected_module == "Deep Search":
     with st.expander("🔧 Advanced filters", expanded=True):
         f1,f2,f3 = st.columns(3)
         with f1:
-            mn, mx = fdf["Date"].min(), fdf["Date"].max()
-            dr = st.date_input("Date range", value=(mn,mx), min_value=mn, max_value=mx)
+            try:
+                import datetime
+                dates_s = pd.to_datetime(fdf["Date"].dropna().astype(str), errors="coerce").dropna()
+                mn = dates_s.min().date() if len(dates_s) else datetime.date.today()
+                mx = dates_s.max().date() if len(dates_s) else datetime.date.today()
+                dr = st.date_input("Date range", value=(mn, mx), min_value=mn, max_value=mx)
+            except Exception:
+                dr = ()
+                st.info("Date filter unavailable.")
         with f2:
             sel_op  = st.multiselect("Operator",     sorted(fdf["Operator"].unique()))
             sel_cat = st.multiselect("Bus category", sorted(fdf["Bus_Category"].unique()))
