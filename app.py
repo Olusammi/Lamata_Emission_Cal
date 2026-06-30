@@ -404,6 +404,16 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
+    st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
+        text-transform:uppercase;color:#3a6ea8;margin:18px 0 8px;padding:0 2px;">Data Quality</div>""",
+        unsafe_allow_html=True)
+    exclude_unmapped = st.checkbox(
+        "Exclude rows with unmapped category/fuel",
+        value=False,
+        help="Rows where Bus_Category or Fuel_Type couldn't be matched to a known "
+             "class (e.g. 'Unknown') use generic fallback emission factors. "
+             "Check this to drop them from every module instead of flagging them.")
+
     # ── ACTIVE FILTERS ──
     if "active_operator" not in st.session_state: st.session_state.active_operator = None
     if "active_euro"     not in st.session_state: st.session_state.active_euro     = None
@@ -565,27 +575,35 @@ def load_and_calc(fbytes, method, pollutants):
             parsed = pd.to_datetime(df["Date"], errors="coerce")
         df["Date"] = parsed.dt.date
 
-    # ── 6. Revenue_Trip: numeric = revenue amount in Naira, rename and set bool True ──
+    # ── 6. Revenue_Trip: numeric = revenue amount in Naira; a trip only
+    # counts as "revenue" if that amount is actually > 0 (per row, not blanket) ──
     if "Revenue_Trip" in df.columns:
         sample = pd.to_numeric(df["Revenue_Trip"].iloc[:20], errors="coerce").dropna()
         if len(sample) > 0 and sample.mean() > 10:
+            numeric_rev = pd.to_numeric(df["Revenue_Trip"], errors="coerce").fillna(0)
             df = df.rename(columns={"Revenue_Trip": "Revenue_Naira"})
-            df["Revenue_Trip"] = True
+            df["Revenue_Trip"] = numeric_rev > 0
         else:
             df["Revenue_Trip"] = df["Revenue_Trip"].astype(str).str.lower() \
                 .isin(["true", "1", "yes", "t"])
 
     # ── 7. Bus_Category: normalise short codes to canonical names ──
+    # NOTE: "unknown" is intentionally left as "Unknown" rather than
+    # guessed — it falls through to FALLBACK_FACTORS in the engine and
+    # is flagged via Category_Unmapped so it's visible/filterable in the UI,
+    # instead of silently being counted as "High Capacity".
     CAT_MAP = {
         "hc": "High Capacity", "high capacity": "High Capacity",
         "midi": "Midi", "mid": "Midi",
         "mini": "Mini",
-        "flm": "Midi", "flm x30l": "Midi", "x30l": "Midi",
-        "unknown": "High Capacity",
+        "flm": "Mini", "flm x30l": "Mini", "x30l": "Mini",
     }
     if "Bus_Category" in df.columns:
-        df["Bus_Category"] = df["Bus_Category"].astype(str).str.strip() \
-            .str.lower().map(lambda x: CAT_MAP.get(x, "High Capacity"))
+        raw_cat = df["Bus_Category"].astype(str).str.strip()
+        is_unmapped = ~raw_cat.str.lower().isin(CAT_MAP.keys())
+        df["Category_Unmapped"] = is_unmapped
+        df["Bus_Category"] = raw_cat.str.lower().map(CAT_MAP)
+        df.loc[is_unmapped, "Bus_Category"] = raw_cat[is_unmapped]  # keep original label, e.g. "Unknown"
 
     # ── 8. Fuel_Type: normalise aliases (PMS = petrol) ──
     FUEL_MAP = {
@@ -594,8 +612,9 @@ def load_and_calc(fbytes, method, pollutants):
         "ev": "Electric", "biogas": "Biogas", "hybrid": "Hybrid",
     }
     if "Fuel_Type" in df.columns:
-        df["Fuel_Type"] = df["Fuel_Type"].astype(str).str.strip() \
-            .str.lower().map(lambda x: FUEL_MAP.get(x, x.title()))
+        raw_fuel = df["Fuel_Type"].astype(str).str.strip()
+        df["Fuel_Unmapped"] = ~raw_fuel.str.lower().isin(FUEL_MAP.keys())
+        df["Fuel_Type"] = raw_fuel.str.lower().map(lambda x: FUEL_MAP.get(x, x.title()))
 
     # ── 9. Num_Trips_Today: real data has fractional values, floor to int ──
     if "Num_Trips_Today" in df.columns:
@@ -687,6 +706,21 @@ if not target_pollutants:
     st.warning("Select at least one pollutant in the sidebar.")
     st.stop()
 
+# ── Flag rows using fallback emission factors due to unmapped category/fuel ──
+n_cat_unmapped = int(df["Category_Unmapped"].sum()) if "Category_Unmapped" in df.columns else 0
+n_fuel_unmapped = int(df["Fuel_Unmapped"].sum()) if "Fuel_Unmapped" in df.columns else 0
+if (n_cat_unmapped or n_fuel_unmapped) and not exclude_unmapped:
+    bits = []
+    if n_cat_unmapped: bits.append(f"{n_cat_unmapped:,} row(s) with an unrecognised Bus_Category")
+    if n_fuel_unmapped: bits.append(f"{n_fuel_unmapped:,} row(s) with an unrecognised Fuel_Type")
+    st.markdown(
+        f'<div style="background:#2a0808;border:1px solid #5c1a1a;border-radius:10px;'
+        f'padding:10px 16px;margin-bottom:12px;font-size:12px;color:#f87171;">'
+        f'<strong>⚠ Data quality:</strong> {" and ".join(bits)} — these are using generic '
+        f'fallback emission factors, not their fleet-specific values. '
+        f'Check <em>Exclude rows with unmapped category/fuel</em> in the sidebar to drop them, '
+        f'or filter by them in Deep Search.</div>', unsafe_allow_html=True)
+
 # ── Apply sidebar quick filters ──
 def apply_filters(src):
     d = src.copy()
@@ -694,6 +728,9 @@ def apply_filters(src):
     if st.session_state.active_euro:     d = d[d["Euro_Standard"] == st.session_state.active_euro]
     if st.session_state.active_fuel:     d = d[d["Fuel_Type"]  == st.session_state.active_fuel]
     if st.session_state.active_category: d = d[d["Bus_Category"]== st.session_state.active_category]
+    if exclude_unmapped:
+        if "Category_Unmapped" in d.columns: d = d[~d["Category_Unmapped"]]
+        if "Fuel_Unmapped"     in d.columns: d = d[~d["Fuel_Unmapped"]]
     return d
 
 # ════════════════════════════════════════════════════════
@@ -1325,6 +1362,7 @@ elif selected_module == "Deep Search":
             comp_f  = st.multiselect("Compliance", ["Good","Monitor","Over Limit","N/A"])
         with f6:
             rev_only = st.checkbox("Revenue trips only", value=False)
+            unmapped_only = st.checkbox("Unmapped category/fuel only", value=False)
 
     mask = pd.Series([True]*len(fdf), index=fdf.index)
     if len(dr)==2: mask &= (fdf["Date"]>=dr[0]) & (fdf["Date"]<=dr[1])
@@ -1336,6 +1374,11 @@ elif selected_module == "Deep Search":
     if bus_q:      mask &= fdf["Bus_ID"].str.contains(bus_q, case=False, na=False)
     if comp_f:     mask &= fdf["Compliance"].isin(comp_f)
     if rev_only:   mask &= fdf["Revenue_Trip"].astype(str).str.lower().isin(["true","1"])
+    if unmapped_only:
+        um = pd.Series([False]*len(fdf), index=fdf.index)
+        if "Category_Unmapped" in fdf.columns: um |= fdf["Category_Unmapped"]
+        if "Fuel_Unmapped"     in fdf.columns: um |= fdf["Fuel_Unmapped"]
+        mask &= um
 
     out = fdf[mask].copy()
     st.markdown(f"**{len(out):,} records matched** of {len(fdf):,} total")
@@ -1343,7 +1386,8 @@ elif selected_module == "Deep Search":
     SHOW = ["Date","Bus_ID","Route_Name","Operator","Bus_Category","Fuel_Type",
             "Euro_Standard","Vehicle_Age_years","AC_Status","Engine_Model",
             "Num_Trips_Today","Route_Distance_km","Avg_Speed_kmh","Ridership",
-            "load_factor","CO2_kg","NOx_kg","PM_kg","CO2_g_pkm","Compliance"]
+            "load_factor","CO2_kg","NOx_kg","PM_kg","CO2_g_pkm","Compliance",
+            "Category_Unmapped","Fuel_Unmapped"]
     show_cols = [c for c in SHOW if c in out.columns]
 
     st.dataframe(out[show_cols].reset_index(drop=True),
