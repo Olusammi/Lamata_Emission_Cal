@@ -171,11 +171,35 @@ section[data-testid="stSidebar"] * {{ color: #8fa49a !important; }}
 section[data-testid="stSidebar"] .stFileUploader label,
 section[data-testid="stSidebar"] .stFileUploader small {{ color: #5c7268 !important; font-size:11px !important; }}
 section[data-testid="stSidebar"] .stFileUploader [data-testid="stFileUploaderDropzone"] {{
-    background: #151d1c !important; border-color: #233029 !important; border-radius: 8px !important;
+    background: #151d1c !important; border-color: #233029 !important; border-radius: 4px !important;
 }}
-section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div,
-section[data-testid="stSidebar"] .stMultiSelect div[data-baseweb="select"] > div {{
-    background: #151d1c !important; border-color: #233029 !important; border-radius: 8px !important; font-size: 12px !important;
+
+/* ── widget labels: small mono caps, consistent everywhere ── */
+.stSelectbox label, .stMultiSelect label, .stTextInput label, .stDateInput label, .stCheckbox label {{
+    font-family: var(--mono) !important; font-size: 10px !important; font-weight: 500 !important;
+    letter-spacing: 0.06em !important; text-transform: uppercase !important; color: var(--text-tert) !important;
+}}
+
+/* ── dropdowns / selects (both sidebar and main content) ── */
+div[data-baseweb="select"] > div {{
+    background: var(--bg-card2) !important; border-color: var(--border) !important;
+    border-radius: 4px !important; font-size: 12.5px !important; min-height: 38px !important;
+}}
+div[data-baseweb="select"] > div:focus-within {{ border-color: var(--accent) !important; box-shadow: 0 0 0 1px var(--accent) !important; }}
+div[data-baseweb="select"] svg {{ fill: var(--text-tert) !important; }}
+/* dropdown popover menu */
+div[data-baseweb="popover"] ul {{ background: var(--bg-card2) !important; border: 1px solid var(--border) !important; }}
+li[data-baseweb="menu-item"] {{ font-size: 12.5px !important; color: var(--text-sec) !important; }}
+li[data-baseweb="menu-item"]:hover, li[aria-selected="true"] {{ background: var(--bg-card) !important; color: var(--text-prim) !important; }}
+/* multiselect selected-value tags */
+div[data-baseweb="tag"] {{
+    background: var(--badge-good-bg) !important; border-radius: 3px !important;
+    font-family: var(--mono) !important; font-size: 11px !important;
+}}
+div[data-baseweb="tag"] span {{ color: var(--badge-good-text) !important; }}
+/* text/date inputs */
+div[data-baseweb="input"] > div, div[data-baseweb="datepicker"] input {{
+    background: var(--bg-card2) !important; border-color: var(--border) !important; border-radius: 4px !important;
 }}
 
 /* ── nav menu ── */
@@ -449,8 +473,12 @@ with st.sidebar:
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
         text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Data Input</div>""",
         unsafe_allow_html=True)
-    uploaded_file = st.file_uploader(
-        "Route manifest (CSV)", type=["csv"], label_visibility="collapsed"
+    uploaded_files = st.file_uploader(
+        "Route manifests (CSV / XLSX) — one or more monthly files",
+        type=["csv", "xlsx", "xls"],
+        accept_multiple_files=True,
+        label_visibility="collapsed",
+        help="Upload one file per month, or several at once — they're merged into a single fleet view automatically.",
     )
 
     # ── GLOBAL CONTROLS ──
@@ -460,11 +488,9 @@ with st.sidebar:
     methodology = st.selectbox(
         "Method", ["Hybrid","IPCC","COPERT"],
         help="Hybrid: CO₂ via IPCC Tier 2, NOx/PM via COPERT V.\nIPCC: all pollutants fixed factor.\nCOPERT: all speed-corrected.",
-        label_visibility="collapsed",
     )
     target_pollutants = st.multiselect(
         "Pollutants", ["CO2","NOx","PM"], default=["CO2","NOx"],
-        label_visibility="collapsed",
     )
 
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
@@ -511,19 +537,20 @@ with st.sidebar:
 # ════════════════════════════════════════════════════════
 # 4. DATA LOADING + CALCULATION
 # ════════════════════════════════════════════════════════
-if not uploaded_file:
+if not uploaded_files:
     st.markdown("""
     <div class="empty">
         <div class="icon">🚌</div>
         <h2>LAMATA Emissions Portal</h2>
-        <p>Upload your route manifest CSV in the sidebar to activate all six modules.
+        <p>Upload one or more route manifests in the sidebar — CSV or Excel (.xlsx) — to activate all six modules.
+        Drop in a whole run of monthly files at once and they'll be merged into a single fleet view.<br><br>
         Required columns: <code>Date</code> <code>Route_Name</code> <code>Bus_ID</code>
         <code>Operator</code> <code>Bus_Category</code> <code>Fuel_Type</code>
         <code>Route_Distance_km</code> <code>Avg_Speed_kmh</code> <code>Ridership</code>
         <code>Revenue_Trip</code><br><br>
         Recommended additions: <code>Euro_Standard</code> <code>Vehicle_Age_years</code>
         <code>AC_Status</code> <code>Num_Trips_Today</code> <code>Engine_Model</code></p>
-        <p style="font-size:12px;color:#9aa5bb;">
+        <p style="font-size:12px;color:var(--text-tert);">
         IPCC Tier 2 · COPERT V · Euro class NOx/PM · Age deterioration · A/C correction</p>
     </div>""", unsafe_allow_html=True)
     st.stop()
@@ -604,41 +631,71 @@ def _fuzzy_rename(df: pd.DataFrame, required: list, optional: list) -> tuple:
     return df, auto_log, still_missing
 
 
-@st.cache_data(show_spinner="Reading and calculating emissions…", ttl=300)
-def load_and_calc(fbytes, method, pollutants):
+def _read_raw_file(name, fbytes):
+    """Read a single uploaded file (CSV or Excel) into a raw DataFrame."""
     import io
-
-    # ── 1. Encoding: handle UTF-8 BOM (Excel CSVs) and latin-1 fallback ──
-    df = None
-    for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
+    ext = name.lower().rsplit(".", 1)[-1] if "." in name else ""
+    if ext in ("xlsx", "xls"):
         try:
-            df = pd.read_csv(io.BytesIO(fbytes), encoding=enc)
-            break
-        except Exception:
+            df = pd.read_excel(io.BytesIO(fbytes), sheet_name=0)
+        except Exception as e:
+            return None, f"Could not read Excel file ({e.__class__.__name__})"
+    else:
+        df = None
+        for enc in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
+            try:
+                df = pd.read_csv(io.BytesIO(fbytes), encoding=enc)
+                break
+            except Exception:
+                continue
+        if df is None:
+            return None, "Could not decode CSV (tried UTF-8, Latin-1, CP1252)"
+    df.columns = [str(c).lstrip("\ufeff").strip() for c in df.columns]
+    return df, None
+
+
+@st.cache_data(show_spinner="Reading and calculating emissions…", ttl=300)
+def load_and_calc(files, method, pollutants):
+    """files: tuple of (filename, filebytes) — one per uploaded monthly manifest.
+    Each file is read and column-matched independently, then all valid files
+    are merged into a single dataframe before calculation."""
+    frames, file_log, auto_log = [], [], {}
+
+    for name, fbytes in files:
+        raw, err = _read_raw_file(name, fbytes)
+        if err:
+            file_log.append({"name": name, "rows": 0, "status": "error", "detail": err})
             continue
-    if df is None:
-        return None, ["FILE_ENCODING"], {}, []
 
-    # ── 2. Strip BOM from column names (safety net) ──
-    df.columns = [c.lstrip("\ufeff").strip() for c in df.columns]
+        renamed, log, still_missing = _fuzzy_rename(raw, EXPECTED_COLS, NEW_COLS)
+        if still_missing:
+            file_log.append({"name": name, "rows": 0, "status": "error",
+                              "detail": f"Missing: {', '.join(still_missing)}",
+                              "cols": raw.columns.tolist()})
+            continue
 
-    # ── 3. Fuzzy column matching ──
-    df, auto_log, still_missing = _fuzzy_rename(df, EXPECTED_COLS, NEW_COLS)
-    if still_missing:
-        return None, still_missing, {}, df.columns.tolist()
+        renamed["Source_File"] = name
+        frames.append(renamed)
+        auto_log.update(log)
+        file_log.append({"name": name, "rows": len(renamed), "status": "ok", "detail": ""})
 
-    # ── 4. Clean operator names (leading/trailing spaces) ──
+    if not frames:
+        return None, file_log, {}, []
+
+    df = pd.concat(frames, ignore_index=True, sort=False)
+
+    # ── Clean operator names (leading/trailing spaces) ──
     if "Operator" in df.columns:
         df["Operator"] = df["Operator"].astype(str).str.strip()
 
-    # ── 5. Date parsing — try DD/MM/YYYY first, then auto-detect ──
+    # ── Date parsing — try DD/MM/YYYY first, then auto-detect ──
     if "Date" in df.columns:
         parsed = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
         if parsed.isna().mean() > 0.5:
             parsed = pd.to_datetime(df["Date"], errors="coerce")
         df["Date"] = parsed.dt.date
 
-    # ── 6. Revenue_Trip: numeric = revenue amount in Naira; a trip only
+    # ── Revenue_Trip: numeric = revenue amount in Naira; a trip only
     # counts as "revenue" if that amount is actually > 0 (per row, not blanket) ──
     if "Revenue_Trip" in df.columns:
         sample = pd.to_numeric(df["Revenue_Trip"].iloc[:20], errors="coerce").dropna()
@@ -650,7 +707,7 @@ def load_and_calc(fbytes, method, pollutants):
             df["Revenue_Trip"] = df["Revenue_Trip"].astype(str).str.lower() \
                 .isin(["true", "1", "yes", "t"])
 
-    # ── 7. Bus_Category: normalise short codes to canonical names ──
+    # ── Bus_Category: normalise short codes to canonical names ──
     # NOTE: "unknown" is intentionally left as "Unknown" rather than
     # guessed — it falls through to FALLBACK_FACTORS in the engine and
     # is flagged via Category_Unmapped so it's visible/filterable in the UI,
@@ -668,7 +725,7 @@ def load_and_calc(fbytes, method, pollutants):
         df["Bus_Category"] = raw_cat.str.lower().map(CAT_MAP)
         df.loc[is_unmapped, "Bus_Category"] = raw_cat[is_unmapped]  # keep original label, e.g. "Unknown"
 
-    # ── 8. Fuel_Type: normalise aliases (PMS = petrol) ──
+    # ── Fuel_Type: normalise aliases (PMS = petrol) ──
     FUEL_MAP = {
         "pms": "Petrol", "petrol": "Petrol", "gasoline": "Petrol",
         "diesel": "Diesel", "cng": "CNG", "electric": "Electric",
@@ -679,18 +736,18 @@ def load_and_calc(fbytes, method, pollutants):
         df["Fuel_Unmapped"] = ~raw_fuel.str.lower().isin(FUEL_MAP.keys())
         df["Fuel_Type"] = raw_fuel.str.lower().map(lambda x: FUEL_MAP.get(x, x.title()))
 
-    # ── 9. Num_Trips_Today: real data has fractional values, floor to int ──
+    # ── Num_Trips_Today: real data has fractional values, floor to int ──
     if "Num_Trips_Today" in df.columns:
         df["Num_Trips_Today"] = pd.to_numeric(df["Num_Trips_Today"], errors="coerce") \
             .fillna(1).clip(lower=0).round().astype(int)
         df["Num_Trips_Today"] = df["Num_Trips_Today"].replace(0, 1)
 
-    # ── 10. Numeric coercion for key fields ──
+    # ── Numeric coercion for key fields ──
     for col in ["Route_Distance_km", "Avg_Speed_kmh", "Ridership", "Vehicle_Age_years"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-    # ── 11. Fill optional new columns with sensible defaults if absent ──
+    # ── Fill optional new columns with sensible defaults if absent ──
     defaults = {
         "Euro_Standard":     "Euro III",
         "Vehicle_Age_years": 5,
@@ -702,7 +759,7 @@ def load_and_calc(fbytes, method, pollutants):
         if col not in df.columns:
             df[col] = val
 
-    # ── 12. Calculate emissions ──
+    # ── Calculate emissions ──
     results = df.apply(lambda r: calculate_row(r, method, pollutants), axis=1)
     df = pd.concat([df, results], axis=1)
 
@@ -713,57 +770,74 @@ def load_and_calc(fbytes, method, pollutants):
     else:
         df["Compliance"] = "N/A"
 
-    return df, [], auto_log, []
+    return df, file_log, auto_log, []
 
 
-file_bytes = uploaded_file.read()
-result = load_and_calc(file_bytes, methodology, target_pollutants)
-df, missing, auto_log, csv_cols = result
+files_payload = tuple((f.name, f.getvalue()) for f in uploaded_files)
+result = load_and_calc(files_payload, methodology, target_pollutants)
+df, file_log, auto_log, _unused = result
+
+ok_files  = [f for f in file_log if f["status"] == "ok"]
+err_files = [f for f in file_log if f["status"] == "error"]
 
 if df is None:
-    # ── Rich diagnostic error UI ──
-    st.markdown("### ❌ Column mismatch — here's what to fix")
-    st.markdown(
-        f'<div class="banner">The app found <strong>{len(csv_cols)}</strong> columns in your CSV '
-        f'but could not resolve <strong>{len(missing)}</strong> required column(s) even after '
-        f'fuzzy matching. Column <em>order</em> does not matter — only the names need to match '
-        f'(case-insensitive, spaces/dashes are normalised automatically).</div>',
-        unsafe_allow_html=True)
-
-    col_a, col_b = st.columns(2)
-    with col_a:
-        st.markdown("**Your CSV columns**")
-        for c in csv_cols:
-            st.markdown(f"- `{c}`")
-    with col_b:
-        st.markdown("**Could not resolve (rename these)**")
-        FIX_HINT = {
-            "Date":              "e.g. `Date`, `trip_date`, `service_date`",
-            "Route_Name":        "e.g. `Route_Name`, `route`, `line`",
-            "Bus_ID":            "e.g. `Bus_ID`, `bus_no`, `vehicle_id`",
-            "Operator":          "e.g. `Operator`, `company`, `owner`",
-            "Bus_Category":      "e.g. `Bus_Category`, `bus_type`, `category`",
-            "Fuel_Type":         "e.g. `Fuel_Type`, `fuel`, `propulsion`",
-            "Route_Distance_km": "e.g. `Route_Distance_km`, `distance`, `km`",
-            "Avg_Speed_kmh":     "e.g. `Avg_Speed_kmh`, `speed`, `avg_speed`",
-            "Ridership":         "e.g. `Ridership`, `passengers`, `pax`",
-            "Revenue_Trip":      "e.g. `Revenue_Trip`, `revenue`, `is_revenue`",
-        }
-        for m in missing:
-            hint = FIX_HINT.get(m, "see documentation")
-            st.markdown(f"- **`{m}`** — {hint}")
-
-    st.info("💡 Tip: column order doesn't matter at all — you can arrange them however suits your data pipeline.")
+    # ── Every file failed — rich diagnostic UI ──
+    st.markdown("### ❌ None of the uploaded files could be read")
+    FIX_HINT = {
+        "Date":              "e.g. `Date`, `trip_date`, `service_date`",
+        "Route_Name":        "e.g. `Route_Name`, `route`, `line`",
+        "Bus_ID":            "e.g. `Bus_ID`, `bus_no`, `vehicle_id`",
+        "Operator":          "e.g. `Operator`, `company`, `owner`",
+        "Bus_Category":      "e.g. `Bus_Category`, `bus_type`, `category`",
+        "Fuel_Type":         "e.g. `Fuel_Type`, `fuel`, `propulsion`",
+        "Route_Distance_km": "e.g. `Route_Distance_km`, `distance`, `km`",
+        "Avg_Speed_kmh":     "e.g. `Avg_Speed_kmh`, `speed`, `avg_speed`",
+        "Ridership":         "e.g. `Ridership`, `passengers`, `pax`",
+        "Revenue_Trip":      "e.g. `Revenue_Trip`, `revenue`, `is_revenue`",
+    }
+    for f in err_files:
+        with st.expander(f"`{f['name']}` — {f['detail']}", expanded=True):
+            if "cols" in f:
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.markdown("**Columns found**")
+                    for c in f["cols"]:
+                        st.markdown(f"- `{c}`")
+                with col_b:
+                    st.markdown("**Could not resolve**")
+                    for m in f["detail"].replace("Missing: ", "").split(", "):
+                        hint = FIX_HINT.get(m, "see documentation")
+                        st.markdown(f"- **`{m}`** — {hint}")
+    st.info("💡 Tip: column order doesn't matter — only names need to match (case-insensitive, fuzzy-matched automatically).")
     st.stop()
+
+# ── Manifest log — confirms exactly what got loaded across monthly files ──
+log_rows = "".join(
+    f'<div class="board-row" style="grid-template-columns:1fr 100px 90px;">'
+    f'<div><div class="route">{f["name"]}</div></div>'
+    f'<div class="figure">{f["rows"]:,} rows</div>'
+    f'<div style="text-align:right;"><span class="status-chip {"good" if f["status"]=="ok" else "over"}">'
+    f'{"LOADED" if f["status"]=="ok" else "FAILED"}</span></div></div>'
+    for f in file_log
+)
+with st.expander(f"📋 Manifest log — {len(ok_files)} file(s) loaded, {len(df):,} total rows"
+                  + (f", {len(err_files)} failed" if err_files else ""),
+                  expanded=bool(err_files)):
+    st.markdown(f'<div class="board">{log_rows}</div>', unsafe_allow_html=True)
+    if err_files:
+        st.warning(
+            f"{len(err_files)} file(s) couldn't be matched and were skipped: "
+            + ", ".join(f"`{f['name']}`" for f in err_files)
+            + ". The rest of the data loaded fine — fix and re-upload the skipped file(s) separately if needed.")
 
 # ── Notify user of any auto-renames ──
 if auto_log:
     rename_chips = " &nbsp;" .join(
-        f'<code style="font-size:11px;background:#fef9c3;color:#78350f;padding:2px 7px;border-radius:4px;">{orig}</code> → <code style="font-size:11px;background:#dcfce7;color:#166534;padding:2px 7px;border-radius:4px;">{canon}</code>'
+        f'<code style="font-size:11px;background:var(--autorename-bg);color:var(--autorename-text);padding:2px 7px;border-radius:3px;">{orig}</code> → <code style="font-size:11px;background:var(--badge-good-bg);color:var(--badge-good-text);padding:2px 7px;border-radius:3px;">{canon}</code>'
         for canon, orig in auto_log.items()
     )
     st.markdown(
-        f'<div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:#78350f;"><strong>🔄 Auto-matched {len(auto_log)} column name(s):</strong>&nbsp; {rename_chips}</div>',
+        f'<div class="autorename-bar"><strong>🔄 Auto-matched {len(auto_log)} column name(s) across uploaded files:</strong>&nbsp; {rename_chips}</div>',
         unsafe_allow_html=True)
 if not target_pollutants:
     st.warning("Select at least one pollutant in the sidebar.")
@@ -777,8 +851,8 @@ if (n_cat_unmapped or n_fuel_unmapped) and not exclude_unmapped:
     if n_cat_unmapped: bits.append(f"{n_cat_unmapped:,} row(s) with an unrecognised Bus_Category")
     if n_fuel_unmapped: bits.append(f"{n_fuel_unmapped:,} row(s) with an unrecognised Fuel_Type")
     st.markdown(
-        f'<div style="background:#2a0808;border:1px solid #5c1a1a;border-radius:10px;'
-        f'padding:10px 16px;margin-bottom:12px;font-size:12px;color:#f87171;">'
+        f'<div style="background:var(--badge-over-bg);border:1px solid #5c1818;border-radius:4px;'
+        f'padding:10px 16px;margin-bottom:12px;font-size:12px;color:var(--badge-over-text);">'
         f'<strong>⚠ Data quality:</strong> {" and ".join(bits)} — these are using generic '
         f'fallback emission factors, not their fleet-specific values. '
         f'Check <em>Exclude rows with unmapped category/fuel</em> in the sidebar to drop them, '
