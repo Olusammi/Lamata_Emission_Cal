@@ -64,86 +64,98 @@ _is_dark = (_theme == "dark")
 
 # CSS variable sets
 _dark_vars = """
-    --bg-app:      #07111f;
-    --bg-main:     #0d1b2a;
-    --bg-card:     #0e1f31;
-    --bg-card2:    #112236;
-    --border:      #1a3350;
-    --border2:     #1e3d5c;
-    --text-prim:   #e8f2ff;
-    --text-sec:    #8aaac8;
-    --text-tert:   #5070a0;
-    --accent:      #4facfe;
-    --accent2:     #1a73e8;
-    --sidebar-bg:  #07111f;
-    --metric-bg:   #0e1f31;
-    --metric-bdr:  #1a3350;
-    --metric-val:  #e8f2ff;
-    --metric-lbl:  #6a90b8;
-    --banner-bg:   linear-gradient(135deg,#0f3460 0%,#0a1f3a 100%);
-    --banner-bdr:  #1a3d5c;
-    --banner-text: #c8dff5;
-    --banner-code-bg: rgba(79,172,254,0.12);
-    --banner-code:    #7fc8ff;
-    --tip-bg:      #0a2a1a;
-    --tip-bdr:     #1a5c30;
+    --bg-app:      #0a0f0e;
+    --bg-main:     #111716;
+    --bg-card:     #111716;
+    --bg-card2:    #151d1c;
+    --border:      #233029;
+    --border2:     #2c3a32;
+    --text-prim:   #eef3f0;
+    --text-sec:    #8fa49a;
+    --text-tert:   #5c7268;
+    --accent:      #ff9d2e;
+    --accent2:     #e8821a;
+    --sidebar-bg:  #070a09;
+    --metric-bg:   #111716;
+    --metric-bdr:  #233029;
+    --metric-val:  #eef3f0;
+    --metric-lbl:  #5c7268;
+    --banner-bg:   linear-gradient(135deg,#1a2420 0%,#0e1413 100%);
+    --banner-bdr:  #2c3a32;
+    --banner-text: #c7d8d0;
+    --banner-code-bg: rgba(255,157,46,0.12);
+    --banner-code:    #ffb35c;
+    --tip-bg:      #11331f;
+    --tip-bdr:     #1d4a30;
     --tip-text:    #7ad4a0;
-    --tip-strong:  #4ade80;
-    --badge-good-bg:  #0a3320; --badge-good-text:  #4ade80;
-    --badge-mon-bg:   #2a1a00; --badge-mon-text:   #fbbf24;
-    --badge-over-bg:  #2a0808; --badge-over-text:  #f87171;
-    --filter-bg:   #1a2a10;   --filter-bdr: #2a5020; --filter-text: #8acc60;
-    --autorename-bg:  #1a1a00; --autorename-bdr: #3a3a00; --autorename-text: #c8c060;
-    --expander-bg: #0e1f31;
-    --table-bdr:   #1a3350;
+    --tip-strong:  #3ddc84;
+    --badge-good-bg:  #11331f; --badge-good-text:  #3ddc84;
+    --badge-mon-bg:   #4a3414; --badge-mon-text:   #ff9d2e;
+    --badge-over-bg:  #3a1414; --badge-over-text:  #ff5252;
+    --filter-bg:   #1a2420;   --filter-bdr: #2c3a32; --filter-text: #9fc4a8;
+    --autorename-bg:  #4a3414; --autorename-bdr: #5c3f12; --autorename-text: #ff9d2e;
+    --expander-bg: #111716;
+    --table-bdr:   #233029;
 """
 _light_vars = """
-    --bg-app:      #f4f6fb;
+    --bg-app:      #f2f4f2;
     --bg-main:     #ffffff;
     --bg-card:     #ffffff;
-    --bg-card2:    #f8faff;
-    --border:      #dde5f5;
-    --border2:     #c8d8f0;
-    --text-prim:   #0f1923;
-    --text-sec:    #4a5c78;
-    --text-tert:   #8a9ab8;
-    --accent:      #1a73e8;
-    --accent2:     #0d5cbf;
-    --sidebar-bg:  #07111f;
+    --bg-card2:    #f6f8f6;
+    --border:      #dde5e0;
+    --border2:     #c8d4cc;
+    --text-prim:   #0f1714;
+    --text-sec:    #4a5c54;
+    --text-tert:   #8a9a90;
+    --accent:      #e8821a;
+    --accent2:     #c46a10;
+    --sidebar-bg:  #070a09;
     --metric-bg:   #ffffff;
-    --metric-bdr:  #e0e8f5;
-    --metric-val:  #0f1923;
-    --metric-lbl:  #7a8599;
-    --banner-bg:   linear-gradient(135deg,#1a4a9c 0%,#0d2d6b 100%);
-    --banner-bdr:  #2a5aaa;
-    --banner-text: #ddeeff;
+    --metric-bdr:  #e0e8e2;
+    --metric-val:  #0f1714;
+    --metric-lbl:  #7a8a80;
+    --banner-bg:   linear-gradient(135deg,#1a3a28 0%,#0d2618 100%);
+    --banner-bdr:  #2a5a3a;
+    --banner-text: #ddf0e4;
     --banner-code-bg: rgba(255,255,255,0.15);
-    --banner-code:    #c8e8ff;
+    --banner-code:    #ffd9ab;
     --tip-bg:      #f0fdf4;
     --tip-bdr:     #bbf7d0;
     --tip-text:    #14532d;
     --tip-strong:  #166534;
     --badge-good-bg:  #dcfce7; --badge-good-text:  #15803d;
-    --badge-mon-bg:   #fef9c3; --badge-mon-text:   #92400e;
+    --badge-mon-bg:   #fef3c7; --badge-mon-text:   #92400e;
     --badge-over-bg:  #fee2e2; --badge-over-text:  #b91c1c;
-    --filter-bg:   #fefce8;   --filter-bdr: #fde68a; --filter-text: #78350f;
-    --autorename-bg:  #fefce8; --autorename-bdr: #fde68a; --autorename-text: #78350f;
-    --expander-bg: #f8faff;
-    --table-bdr:   #dde5f5;
+    --filter-bg:   #f0faf3;   --filter-bdr: #cbe8d3; --filter-text: #2a5a3a;
+    --autorename-bg:  #fff7ed; --autorename-bdr: #fed7aa; --autorename-text: #9a4a0a;
+    --expander-bg: #f6f8f6;
+    --table-bdr:   #dde5e0;
 """
 
 _css_vars = _dark_vars if _is_dark else _light_vars
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
 
-:root {{ {_css_vars} }}
+:root {{ {_css_vars}
+    --disp: 'Oswald', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+    --body: 'Inter', sans-serif;
+}}
 
 /* ── chrome ── */
 #MainMenu, footer, header {{ visibility: hidden; }}
 div[data-testid="stSidebarNav"] {{ display: none; }}
-html, body, [class*="css"] {{ font-family: 'Inter', sans-serif; }}
+html, body, [class*="css"] {{ font-family: var(--body); }}
+
+/* ── headers use signage-style condensed display face ── */
+h1, h2, h3, h4 {{ font-family: var(--disp) !important; font-weight: 600 !important; letter-spacing: 0.01em; }}
+
+/* ── numeric readouts use monospace ── */
+div[data-testid="stMetricValue"] > div,
+.kpi-accent .val, .gauge-readout, .board-row .figure, .brow .val,
+.banner-code, code {{ font-family: var(--mono) !important; }}
 
 /* ── main background ── */
 .stApp {{ background: var(--bg-app) !important; }}
@@ -152,24 +164,24 @@ section[data-testid="stMain"] > div {{ background: var(--bg-app) !important; }}
 /* ── sidebar ── */
 section[data-testid="stSidebar"] > div:first-child {{
     background: var(--sidebar-bg) !important;
-    border-right: 1px solid #14283f;
+    border-right: 1px solid #233029;
     padding-top: 0 !important;
 }}
-section[data-testid="stSidebar"] * {{ color: #b8cce0 !important; }}
+section[data-testid="stSidebar"] * {{ color: #8fa49a !important; }}
 section[data-testid="stSidebar"] .stFileUploader label,
-section[data-testid="stSidebar"] .stFileUploader small {{ color: #6a85a3 !important; font-size:11px !important; }}
+section[data-testid="stSidebar"] .stFileUploader small {{ color: #5c7268 !important; font-size:11px !important; }}
 section[data-testid="stSidebar"] .stFileUploader [data-testid="stFileUploaderDropzone"] {{
-    background: #0e1f31 !important; border-color: #1e3a55 !important; border-radius: 8px !important;
+    background: #151d1c !important; border-color: #233029 !important; border-radius: 8px !important;
 }}
 section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div,
 section[data-testid="stSidebar"] .stMultiSelect div[data-baseweb="select"] > div {{
-    background: #0e1f31 !important; border-color: #1e3a55 !important; border-radius: 8px !important; font-size: 12px !important;
+    background: #151d1c !important; border-color: #233029 !important; border-radius: 8px !important; font-size: 12px !important;
 }}
 
 /* ── nav menu ── */
-.nav-link {{ border-radius: 8px !important; margin: 1px 0 !important; font-size:13px !important; }}
-.nav-link-selected {{ background: #0f3460 !important; color: #4facfe !important; }}
-.nav-link:hover {{ background: #0d2137 !important; }}
+.nav-link {{ border-radius: 4px !important; margin: 1px 0 !important; font-size:13px !important; border-left: 3px solid transparent !important; }}
+.nav-link-selected {{ background: #151d1c !important; color: var(--accent) !important; border-left: 3px solid var(--accent) !important; }}
+.nav-link:hover {{ background: #0d1413 !important; }}
 
 /* ── main text colours ── */
 h1, h2, h3, h4, h5, h6 {{ color: var(--text-prim) !important; }}
@@ -181,94 +193,96 @@ label, .stSelectbox label, .stMultiSelect label {{ color: var(--text-sec) !impor
 div[data-testid="metric-container"] {{
     background: var(--metric-bg) !important;
     border: 1px solid var(--metric-bdr) !important;
-    border-radius: 14px; padding: 18px 20px 14px !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    border-top: 2px solid var(--border2) !important;
+    border-radius: 4px; padding: 16px 18px 14px !important;
+    box-shadow: none;
 }}
-div[data-testid="stMetricLabel"] > div  {{ font-size: 11px !important; color: var(--metric-lbl) !important; font-weight:500 !important; letter-spacing:0.04em; text-transform:uppercase; }}
-div[data-testid="stMetricValue"] > div  {{ font-size: 28px !important; color: var(--metric-val) !important; font-weight:600 !important; letter-spacing:-0.5px; }}
-div[data-testid="stMetricDelta"]        {{ font-size: 12px !important; }}
+div[data-testid="stMetricLabel"] > div  {{ font-family: var(--mono) !important; font-size: 10px !important; color: var(--metric-lbl) !important; font-weight:500 !important; letter-spacing:0.07em; text-transform:uppercase; }}
+div[data-testid="stMetricValue"] > div  {{ font-size: 26px !important; color: var(--metric-val) !important; font-weight:600 !important; letter-spacing:-0.01em; }}
+div[data-testid="stMetricDelta"]        {{ font-family: var(--mono) !important; font-size: 11px !important; }}
 
 /* ── banner ── */
 .banner {{
     background: var(--banner-bg);
     color: var(--banner-text) !important;
-    border-radius: 12px; padding: 14px 20px;
+    border-radius: 4px; padding: 14px 20px;
     font-size: 13px; line-height: 1.65; margin-bottom: 18px;
     border: 1px solid var(--banner-bdr);
 }}
 .banner strong {{ color: var(--accent) !important; }}
 .banner code   {{ background: var(--banner-code-bg); color: var(--banner-code) !important;
-                  padding: 1px 6px; border-radius:4px; font-size:11px; }}
+                  padding: 1px 6px; border-radius:3px; font-size:11px; }}
 
 /* ── chip bar ── */
-.chip {{ display:inline-flex; align-items:center; gap:5px; padding: 5px 12px; border-radius:20px;
-         font-size: 12px; font-weight:500; cursor:pointer; border: 1.5px solid transparent; }}
-.chip-blue   {{ background:#1a3460; color:#7fc0ff; border-color:#2a5090; }}
-.chip-green  {{ background:#0a2a18; color:#6ec87a; border-color:#1a5a30; }}
-.chip-amber  {{ background:#2a1a00; color:#f0b040; border-color:#5a3a00; }}
-.chip-red    {{ background:#2a0808; color:#f08080; border-color:#5a1818; }}
-.chip-gray   {{ background:#1a2a3a; color:#8aaac0; border-color:#2a3a4a; }}
+.chip {{ display:inline-flex; align-items:center; gap:5px; padding: 5px 11px; border-radius:3px;
+         font-family: var(--mono); font-size: 11px; font-weight:500; cursor:pointer; border: 1px solid transparent; }}
+.chip-blue   {{ background:#142a2a; color:#5cc8c8; border-color:#1f4a4a; }}
+.chip-green  {{ background:#11331f; color:#3ddc84; border-color:#1d4a30; }}
+.chip-amber  {{ background:#4a3414; color:#ff9d2e; border-color:#5c3f12; }}
+.chip-red    {{ background:#3a1414; color:#ff5252; border-color:#5c1818; }}
+.chip-gray   {{ background:#151d1c; color:#8fa49a; border-color:#233029; }}
 
 /* ── compliance badges ── */
-.badge {{ display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }}
+.badge {{ display:inline-block; padding:3px 9px; border-radius:3px; font-family: var(--mono); font-size:10.5px; font-weight:600; letter-spacing:0.04em; }}
 .badge-good    {{ background: var(--badge-good-bg); color: var(--badge-good-text); }}
 .badge-monitor {{ background: var(--badge-mon-bg);  color: var(--badge-mon-text); }}
 .badge-over    {{ background: var(--badge-over-bg); color: var(--badge-over-text); }}
-.badge-na      {{ background: #1a2a3a; color: #6a8aaa; }}
+.badge-na      {{ background: #151d1c; color: #5c7268; }}
 
 /* ── kpi accent cards ── */
-.kpi-accent {{ border-radius: 14px; padding: 16px 18px;
-               border: 1px solid var(--border); background: var(--bg-card); }}
-.kpi-accent .val {{ font-size:26px; font-weight:600; color:var(--text-prim); letter-spacing:-0.5px; line-height:1.2; }}
-.kpi-accent .lbl {{ font-size:11px; color:var(--text-tert); font-weight:500; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }}
+.kpi-accent {{ border-radius: 4px; padding: 16px 18px;
+               border: 1px solid var(--border); border-top: 2px solid var(--border2); background: var(--bg-card); }}
+.kpi-accent .val {{ font-size:26px; font-weight:600; color:var(--text-prim); letter-spacing:-0.01em; line-height:1.2; }}
+.kpi-accent .lbl {{ font-family: var(--mono); font-size:10px; color:var(--text-tert); font-weight:500; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:8px; }}
 .kpi-accent .sub {{ font-size:12px; color:var(--text-sec); margin-top:4px; }}
 
 /* ── section divider ── */
 .sec-label {{
-    font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase;
+    font-family: var(--mono); font-size:10px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase;
     color:var(--text-tert); margin: 22px 0 10px; display:flex; align-items:center; gap:10px;
 }}
 .sec-label::after {{ content:''; flex:1; height:1px; background:var(--border); }}
 
 /* ── tip cards ── */
-.tip {{ background:var(--tip-bg); border:1px solid var(--tip-bdr); border-radius:10px;
+.tip {{ background:var(--tip-bg); border:1px solid var(--tip-bdr); border-radius:4px;
         padding:11px 14px; margin-bottom:8px; font-size:12px; color:var(--tip-text); line-height:1.6; }}
 .tip strong {{ color: var(--tip-strong); }}
 
 /* ── breakdown bar ── */
 .brow {{ display:flex; align-items:center; gap:10px; margin-bottom:9px; }}
 .brow .lbl {{ font-size:11px; color:var(--text-sec); width:90px; flex-shrink:0; }}
-.brow .bg  {{ flex:1; height:7px; background:var(--bg-card2); border-radius:4px; overflow:hidden; }}
-.brow .fill {{ height:100%; border-radius:4px; }}
+.brow .bg  {{ flex:1; height:7px; background:var(--bg-card2); border-radius:3px; overflow:hidden; }}
+.brow .fill {{ height:100%; border-radius:3px; }}
 .brow .val {{ font-size:12px; font-weight:600; color:var(--text-prim); width:62px; text-align:right; flex-shrink:0; }}
 
 /* ── active filter bar ── */
 .filter-bar {{
     background: var(--filter-bg); border:1px solid var(--filter-bdr);
-    border-radius:10px; padding:10px 14px; margin-bottom:14px;
+    border-radius:4px; padding:10px 14px; margin-bottom:14px;
     font-size:12px; color:var(--filter-text);
 }}
 
 /* ── auto-rename bar ── */
 .autorename-bar {{
     background: var(--autorename-bg); border:1px solid var(--autorename-bdr);
-    border-radius:10px; padding:10px 16px; margin-bottom:12px;
+    border-radius:4px; padding:10px 16px; margin-bottom:12px;
     font-size:12px; color:var(--autorename-text);
 }}
 
 /* ── expanders ── */
 div[data-testid="stExpander"] {{ background: var(--expander-bg) !important;
-    border: 1px solid var(--border) !important; border-radius: 10px !important; }}
+    border: 1px solid var(--border) !important; border-radius: 4px !important; }}
 div[data-testid="stExpander"] summary span {{ color: var(--text-prim) !important; }}
 
 /* ── dataframe ── */
-div[data-testid="stDataFrame"] {{ border-radius:12px; overflow:hidden; border:1px solid var(--table-bdr); }}
+div[data-testid="stDataFrame"] {{ border-radius:4px; overflow:hidden; border:1px solid var(--table-bdr); }}
+div[data-testid="stDataFrame"] * {{ font-family: var(--mono) !important; }}
 
 /* ── buttons ── */
-.stButton > button {{ border-radius: 8px !important; font-size: 12px !important; }}
+.stButton > button {{ border-radius: 3px !important; font-family: var(--mono) !important; font-size: 11px !important; letter-spacing: 0.03em; }}
 
 /* ── tabs ── */
-div[data-testid="stTabs"] button {{ font-size:13px !important; color: var(--text-sec) !important; }}
+div[data-testid="stTabs"] button {{ font-family: var(--mono) !important; font-size:12px !important; color: var(--text-sec) !important; }}
 div[data-testid="stTabs"] button[aria-selected="true"] {{ color: var(--accent) !important; }}
 
 /* ── empty state ── */
@@ -277,20 +291,30 @@ div[data-testid="stTabs"] button[aria-selected="true"] {{ color: var(--accent) !
 .empty .icon {{ font-size:52px; }}
 .empty h2 {{ font-size:22px; font-weight:600; color:var(--text-prim); }}
 .empty p  {{ font-size:14px; color:var(--text-sec); max-width:440px; line-height:1.7; }}
-.empty code {{ font-size:11px; background:var(--bg-card2); color:var(--accent); padding:2px 7px; border-radius:4px; }}
+.empty code {{ font-size:11px; background:var(--bg-card2); color:var(--accent); padding:2px 7px; border-radius:3px; }}
 
 /* ── plotly transparent ── */
 .js-plotly-plot .plotly .main-svg {{ background: transparent !important; }}
 
 /* ── operator table cards ── */
 .op-card {{
-    background: var(--bg-card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 14px 16px; margin-bottom: 8px;
+    background: var(--bg-card); border: 1px solid var(--border); border-top: 2px solid var(--border2);
+    border-radius: 4px; padding: 14px 16px; margin-bottom: 8px;
 }}
 .op-card .op-name {{ font-size:13px; font-weight:600; color:var(--text-prim); margin-bottom:4px; }}
-.op-card .op-meta {{ font-size:11px; color:var(--text-sec); }}
-.op-bar-bg {{ background:var(--bg-card2); border-radius:4px; height:6px; margin-top:6px; overflow:hidden; }}
-.op-bar    {{ height:100%; border-radius:4px; background: var(--accent2); }}
+.op-card .op-meta {{ font-family: var(--mono); font-size:10.5px; color:var(--text-sec); }}
+.op-bar-bg {{ background:var(--bg-card2); border-radius:3px; height:6px; margin-top:6px; overflow:hidden; }}
+.op-bar    {{ height:100%; border-radius:3px; background: var(--accent); }}
+
+/* ── compliance gauge (signature element) ── */
+.gauge-wrap {{ text-align:center; }}
+.gauge-readout {{ font-size:28px; font-weight:600; color:var(--text-prim); margin-top:4px; }}
+.gauge-readout .u {{ font-family: var(--body); font-size:12px; color:var(--text-sec); }}
+.gauge-status {{ display:inline-block; margin-top:8px; font-family: var(--mono); font-size:10.5px; font-weight:600;
+    letter-spacing:0.06em; padding:4px 11px; border-radius:3px; }}
+.gauge-status.good    {{ background: var(--badge-good-bg); color: var(--badge-good-text); }}
+.gauge-status.monitor {{ background: var(--badge-mon-bg);  color: var(--badge-mon-text); }}
+.gauge-status.over    {{ background: var(--badge-over-bg); color: var(--badge-over-text); }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -304,10 +328,10 @@ EXPECTED_COLS = [
 NEW_COLS = ["Euro_Standard","Vehicle_Age_years","AC_Status","Num_Trips_Today","Engine_Model"]
 ALL_COLS = EXPECTED_COLS + NEW_COLS
 
-PALETTE  = ["#1a73e8","#34a853","#fbbc04","#ea4335","#9c27b0","#00bcd4","#ff6d00","#607d8b"]
+PALETTE  = ["#ff9d2e","#3ddc84","#5cc8c8","#ff5252","#c9a8ff","#ffd166","#7fb8a8","#8fa49a"]
 PLY_BASE = dict(
     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter",size=12,color="#374151"),
+    font=dict(family="Inter",size=12,color="#eef3f0" if _is_dark else "#0f1714"),
     margin=dict(l=4,r=4,t=36,b=4),
     legend=dict(bgcolor="rgba(0,0,0,0)",borderwidth=0),
 )
@@ -319,6 +343,44 @@ def fmt_gkm(v): return f"{v:,.1f} g/pkm"
 def badge_html(flag):
     cls = {"Good":"badge-good","Monitor":"badge-monitor","Over Limit":"badge-over"}.get(flag,"badge-na")
     return f'<span class="badge {cls}">{flag}</span>'
+
+def gauge_svg(value, good_t, monitor_t, unit="g CO₂/pkm", max_val=None):
+    """Renders the signature semicircular instrument-panel gauge used for
+    compliance readouts. value/good_t/monitor_t are in the same units."""
+    flag = "Good" if value <= good_t else ("Monitor" if value <= monitor_t else "Over Limit")
+    status_cls = {"Good":"good","Monitor":"monitor","Over Limit":"over"}[flag]
+    if max_val is None:
+        max_val = max(monitor_t * 1.6, value * 1.1, 1)
+    pct = max(0.0, min(value / max_val, 1.0))
+    angle = 180 * pct  # 0..180 degrees sweep, left to right
+    import math
+    rad = math.radians(180 - angle)
+    cx, cy, r = 110, 110, 80
+    nx = cx + r * math.cos(rad) * 0.62
+    ny = cy - r * math.sin(rad) * 0.62
+    good_frac = min(good_t / max_val, 1.0)
+    mon_frac  = min(monitor_t / max_val, 1.0)
+
+    def arc_path(f0, f1):
+        a0 = 180 - 180 * f0
+        a1 = 180 - 180 * f1
+        r0 = math.radians(a0); r1 = math.radians(a1)
+        x0, y0 = cx + r*math.cos(r0), cy - r*math.sin(r0)
+        x1, y1 = cx + r*math.cos(r1), cy - r*math.sin(r1)
+        return f"M {x0:.1f} {y0:.1f} A {r} {r} 0 0 1 {x1:.1f} {y1:.1f}"
+
+    return f"""
+    <div class="gauge-wrap">
+      <svg width="220" height="128" viewBox="0 0 220 128">
+        <path d="{arc_path(0, good_frac)}" fill="none" stroke="#3ddc84" stroke-width="14" stroke-linecap="round"/>
+        <path d="{arc_path(good_frac, mon_frac)}" fill="none" stroke="#ff9d2e" stroke-width="14" stroke-linecap="round"/>
+        <path d="{arc_path(mon_frac, 1.0)}" fill="none" stroke="#ff5252" stroke-width="14" stroke-linecap="round"/>
+        <line x1="{cx}" y1="{cy}" x2="{nx:.1f}" y2="{ny:.1f}" stroke="#eef3f0" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="{cx}" cy="{cy}" r="6" fill="#eef3f0"/>
+      </svg>
+      <div class="gauge-readout">{value:.1f}<span class="u"> {unit}</span></div>
+      <div class="gauge-status {status_cls}">{flag.upper()}</div>
+    </div>"""
 
 def chip(label, cls="chip-gray"):
     return f'<span class="chip {cls}">{label}</span>'
@@ -337,14 +399,14 @@ def kpi_card(label, value, sub="", dot_color=None):
 # ════════════════════════════════════════════════════════
 with st.sidebar:
     st.markdown("""
-    <div style="background:#0d2137;padding:18px 16px 14px;margin:-1rem -1rem 0;border-bottom:1px solid #14283f;">
+    <div style="background:#0d1413;padding:20px 16px 16px;margin:-1rem -1rem 0;border-bottom:1px solid #233029;">
         <div style="display:flex;align-items:center;gap:11px;">
-            <div style="width:38px;height:38px;background:linear-gradient(135deg,#1a73e8,#0a3d8f);
-                        border-radius:10px;display:flex;align-items:center;justify-content:center;
-                        font-size:20px;flex-shrink:0;">🚌</div>
+            <div style="width:36px;height:36px;border:2px solid #ff9d2e;border-radius:3px;
+                        display:flex;align-items:center;justify-content:center;
+                        font-family:'Oswald',sans-serif;font-weight:700;color:#ff9d2e;font-size:13px;flex-shrink:0;">LM</div>
             <div>
-                <div style="font-size:15px;font-weight:600;color:#e8f2ff;letter-spacing:0.02em;">LAMATA</div>
-                <div style="font-size:11px;color:#4a7fa8;margin-top:1px;">Emissions Portal v3</div>
+                <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;color:#eef3f0;letter-spacing:0.02em;">LAMATA</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#5c7268;margin-top:2px;letter-spacing:0.06em;">EMISSIONS PORTAL</div>
             </div>
         </div>
     </div>
@@ -374,17 +436,18 @@ with st.sidebar:
         default_index=0,
         styles={
             "container":         {"padding":"0!important","background-color":"transparent"},
-            "icon":              {"color":"#3a6ea8","font-size":"15px"},
-            "nav-link":          {"font-size":"13px","text-align":"left","margin":"1px 0",
-                                  "color":"#7aaad0","--hover-color":"#0d2137","padding":"9px 14px"},
-            "nav-link-selected": {"background-color":"#0f3460","color":"#4facfe",
-                                  "font-weight":"600","border-radius":"8px"},
+            "icon":              {"color":"#5c7268","font-size":"15px"},
+            "nav-link":          {"font-size":"12.5px","text-align":"left","margin":"1px 0",
+                                  "color":"#8fa49a","--hover-color":"#0d1413","padding":"9px 14px",
+                                  "border-left":"3px solid transparent"},
+            "nav-link-selected": {"background-color":"#151d1c","color":"#ff9d2e",
+                                  "font-weight":"600","border-radius":"4px","border-left":"3px solid #ff9d2e"},
         },
     )
 
     # ── DATA INPUT ──
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
-        text-transform:uppercase;color:#3a6ea8;margin:18px 0 8px;padding:0 2px;">Data Input</div>""",
+        text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Data Input</div>""",
         unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
         "Route manifest (CSV)", type=["csv"], label_visibility="collapsed"
@@ -392,7 +455,7 @@ with st.sidebar:
 
     # ── GLOBAL CONTROLS ──
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
-        text-transform:uppercase;color:#3a6ea8;margin:18px 0 8px;padding:0 2px;">Calculation</div>""",
+        text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Calculation</div>""",
         unsafe_allow_html=True)
     methodology = st.selectbox(
         "Method", ["Hybrid","IPCC","COPERT"],
@@ -405,7 +468,7 @@ with st.sidebar:
     )
 
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
-        text-transform:uppercase;color:#3a6ea8;margin:18px 0 8px;padding:0 2px;">Data Quality</div>""",
+        text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Data Quality</div>""",
         unsafe_allow_html=True)
     exclude_unmapped = st.checkbox(
         "Exclude rows with unmapped category/fuel",
@@ -421,9 +484,9 @@ with st.sidebar:
     if "active_category" not in st.session_state: st.session_state.active_category = None
 
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
-        text-transform:uppercase;color:#3a6ea8;margin:18px 0 8px;padding:0 2px;">Quick Filters</div>""",
+        text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Quick Filters</div>""",
         unsafe_allow_html=True)
-    st.markdown('<div style="font-size:11px;color:#4a7fa8;margin-bottom:6px;">Applied across all modules</div>',
+    st.markdown('<div style="font-size:11px;color:#5c7268;margin-bottom:6px;">Applied across all modules</div>',
         unsafe_allow_html=True)
 
     if st.button("✕ Clear all filters", use_container_width=True,
@@ -437,7 +500,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown(
-        '<div style="font-size:10px;color:#2a4f6e;line-height:1.7;padding:0 2px;">'
+        '<div style="font-size:10px;color:#3a4a42;line-height:1.7;padding:0 2px;">'
         'Factors: IPCC 2006 Tier 2 · COPERT V<br>'
         'Euro II–VI NOx/PM multipliers · Age deterioration<br>'
         'A/C per-trip flag · Engine model correction<br>'
@@ -902,7 +965,7 @@ if selected_module == "Dashboard":
         daily["Date"] = daily["Date"].astype(str)
         fig3 = px.area(daily, x="Date", y="CO2_kg",
                        title="Daily CO₂ total",
-                       color_discrete_sequence=["#1a73e8"])
+                       color_discrete_sequence=["#ff9d2e"])
         fig3.update_traces(fillcolor="rgba(26,115,232,0.10)", line_width=2.5)
         fig3.update_layout(**PLY_BASE, title_font_size=13, xaxis_title="", yaxis_title="kg CO₂")
         st.plotly_chart(fig3, use_container_width=True)
@@ -1024,7 +1087,7 @@ elif selected_module == "Fleet Intelligence":
             # Fleet age distribution
             fig2 = px.histogram(fdf.drop_duplicates("Bus_ID"), x="Vehicle_Age_years",
                                 nbins=10, title="Fleet age distribution",
-                                color_discrete_sequence=["#1a73e8"])
+                                color_discrete_sequence=["#ff9d2e"])
             fig2.update_layout(**PLY_BASE, title_font_size=13,
                                xaxis_title="Age (years)", yaxis_title="Vehicles")
             st.plotly_chart(fig2, use_container_width=True)
@@ -1256,7 +1319,7 @@ elif selected_module == "Trip Inspector":
     with col_l:
         labels  = ["Hot running","Cold start","Idling","A/C load","Grid (EV)"]
         raw_g   = [bd["hot_running"],bd["cold_start"],bd["idling"],bd["ac_load"],bd["grid_electric"]]
-        colors  = ["#1a73e8","#fbbc04","#ef4444","#34a853","#9c27b0"]
+        colors  = ["#5cc8c8","#ff9d2e","#ff5252","#3ddc84","#c9a8ff"]
         total_g = max(bd["total_g"],1)
 
         for lbl, grams, col in zip(labels, raw_g, colors):
@@ -1269,19 +1332,19 @@ elif selected_module == "Trip Inspector":
             </div>""", unsafe_allow_html=True)
 
         st.markdown(
-            f'<div style="margin-top:14px;padding:14px 18px;background:#f0f7ff;'
-            f'border:1px solid #c0d8f8;border-radius:12px;">'
-            f'<div style="font-size:11px;color:#5a7a9a;margin-bottom:4px;">TOTAL CO₂ THIS TRIP</div>'
-            f'<div style="font-size:26px;font-weight:600;color:#0f1923;">{bd["total_g"]/1000:.3f} kg</div>'
+            f'<div style="margin-top:14px;padding:14px 18px;background:var(--bg-card2);'
+            f'border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:4px;">'
+            f'<div style="font-family:var(--mono);font-size:10px;letter-spacing:0.07em;color:var(--text-tert);margin-bottom:4px;">TOTAL CO₂ THIS TRIP</div>'
+            f'<div style="font-family:var(--mono);font-size:26px;font-weight:600;color:var(--text-prim);">{bd["total_g"]/1000:.3f} kg</div>'
             f'</div>', unsafe_allow_html=True)
 
         if "CO2" in target_pollutants:
             gpkm = float(trip.get("CO2_g_pkm",0))
-            flag = compliance_flag(gpkm, trip["Bus_Category"])
+            t = {"High Capacity": (30,55), "Midi": (45,75), "Mini": (60,95)}.get(trip["Bus_Category"], (40,70))
             st.markdown(
-                f'<div style="margin-top:12px;">'
-                f'<div style="font-size:11px;color:#7a8599;margin-bottom:6px;">Compliance status</div>'
-                f'{badge_html(flag)} <span style="font-size:13px;color:#374151;margin-left:6px;">{gpkm:.1f} g CO₂/pkm</span>'
+                f'<div style="margin-top:14px;">'
+                f'<div style="font-size:11px;color:var(--text-tert);margin-bottom:6px;">Compliance status</div>'
+                f'{gauge_svg(gpkm, t[0], t[1])}'
                 f'</div>', unsafe_allow_html=True)
 
     with col_r:
