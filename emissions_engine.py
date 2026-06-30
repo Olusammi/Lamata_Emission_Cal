@@ -47,6 +47,70 @@ BASE_FACTORS = {
 FALLBACK_FACTORS = {"CO2": 1100.0, "NOx": 7.0, "PM": 0.15, "capacity": 80}
 
 # ──────────────────────────────────────────────────────────────
+# SECTION 1b: RAW DATA NORMALIZATION
+# Real LAMATA export data uses operational codes/labels that don't
+# match the engine's canonical category/fuel keys. These aliases
+# map raw values onto the canonical keys used by BASE_FACTORS so
+# rows don't silently fall through to FALLBACK_FACTORS.
+# "Unknown" is intentionally NOT aliased — it is flagged instead
+# of guessed, since fleet category materially changes the result.
+# ──────────────────────────────────────────────────────────────
+CATEGORY_ALIASES = {
+    "HC":            "High Capacity",
+    "High Capacity": "High Capacity",
+    "Midi":          "Midi",
+    "Mini":          "Mini",
+    "FLM":           "Mini",   # feeder/last-mile — small bus
+    "FLM X30L":      "Mini",
+}
+
+FUEL_ALIASES = {
+    "Diesel":   "Diesel",
+    "PMS":      "Petrol",      # Nigerian term for petrol/gasoline
+    "Petrol":   "Petrol",
+    "CNG":      "CNG",
+    "Electric": "Electric",
+    "Biogas":   "Biogas",
+    "Hybrid":   "Hybrid",
+}
+
+
+def normalize_category(raw: str) -> tuple:
+    """Returns (canonical_category, was_mapped: bool).
+    Unmapped/unknown values pass through unchanged with was_mapped=False
+    so callers can flag them instead of silently using fallback factors."""
+    raw = str(raw).strip()
+    mapped = CATEGORY_ALIASES.get(raw)
+    if mapped is not None:
+        return mapped, True
+    return raw, False
+
+
+def normalize_fuel(raw: str) -> tuple:
+    """Returns (canonical_fuel, was_mapped: bool)."""
+    raw = str(raw).strip()
+    mapped = FUEL_ALIASES.get(raw)
+    if mapped is not None:
+        return mapped, True
+    return raw, False
+
+
+def parse_revenue_trip(raw) -> bool:
+    """Revenue_Trip in real exports is fare revenue in Naira (e.g. 325080),
+    not a boolean. Any positive numeric value = a revenue-generating trip.
+    Still accepts True/False/1/0/yes/no for backward compatibility with
+    older or synthetic test data."""
+    s = str(raw).strip().lower()
+    if s in ("true", "1", "yes"):
+        return True
+    if s in ("false", "0", "no", "", "nan", "none"):
+        return False
+    try:
+        return float(raw) > 0
+    except (TypeError, ValueError):
+        return False
+
+# ──────────────────────────────────────────────────────────────
 # SECTION 2: EURO CLASS MULTIPLIERS
 # Applied to NOx and PM (not CO2 — Euro class mainly affects
 # after-treatment, not thermodynamic carbon output).
@@ -174,12 +238,14 @@ def _load_corr(ridership, capacity):
 # SECTION 10: MAIN ROW CALCULATOR
 # ──────────────────────────────────────────────────────────────
 def calculate_row(row, methodology: str, target_pollutants: list) -> pd.Series:
-    bus_cat      = str(row.get("Bus_Category", "")).strip()
-    fuel         = str(row.get("Fuel_Type", "")).strip()
+    bus_cat_raw  = str(row.get("Bus_Category", "")).strip()
+    fuel_raw     = str(row.get("Fuel_Type", "")).strip()
+    bus_cat, cat_mapped   = normalize_category(bus_cat_raw)
+    fuel, fuel_mapped     = normalize_fuel(fuel_raw)
     distance     = float(row.get("Route_Distance_km", 0) or 0)
     speed        = float(row.get("Avg_Speed_kmh", 25) or 25)
     ridership    = max(1, int(row.get("Ridership", 1) or 1))
-    is_revenue   = str(row.get("Revenue_Trip", "True")).strip().lower() in ("true", "1", "yes")
+    is_revenue   = parse_revenue_trip(row.get("Revenue_Trip", "True"))
     euro         = str(row.get("Euro_Standard", DEFAULT_EURO)).strip()
     age          = int(row.get("Vehicle_Age_years", 0) or 0)
     ac_on        = str(row.get("AC_Status", "True")).strip().lower() in ("true", "1", "yes")
@@ -210,6 +276,8 @@ def calculate_row(row, methodology: str, target_pollutants: list) -> pd.Series:
             "euro_nox_mult": 0.0,
             "age_co2_mult":  1.0,
             "ac_uplift_kg":  0.0,
+            "category_unmapped": not cat_mapped,
+            "fuel_unmapped":     not fuel_mapped,
         })
 
     results = {}
@@ -265,6 +333,8 @@ def calculate_row(row, methodology: str, target_pollutants: list) -> pd.Series:
     results["euro_nox_mult"]  = euro_mults.get("NOx", 1.0)
     results["age_co2_mult"]   = round(age_mults["CO2"], 3)
     results["ac_uplift_kg"]   = round(ac_uplift_kg, 4)
+    results["category_unmapped"] = not cat_mapped
+    results["fuel_unmapped"]     = not fuel_mapped
     return pd.Series(results)
 
 
@@ -272,8 +342,8 @@ def calculate_row(row, methodology: str, target_pollutants: list) -> pd.Series:
 # SECTION 11: SINGLE-TRIP BREAKDOWN (for Trip Inspector)
 # ──────────────────────────────────────────────────────────────
 def emission_breakdown(row, methodology="Hybrid") -> dict:
-    bus_cat  = str(row.get("Bus_Category", "")).strip()
-    fuel     = str(row.get("Fuel_Type",    "")).strip()
+    bus_cat, _  = normalize_category(str(row.get("Bus_Category", "")).strip())
+    fuel, _     = normalize_fuel(str(row.get("Fuel_Type",    "")).strip())
     distance = float(row.get("Route_Distance_km", 0) or 0)
     speed    = float(row.get("Avg_Speed_kmh", 25) or 25)
     ridership = max(1, int(row.get("Ridership", 1) or 1))
