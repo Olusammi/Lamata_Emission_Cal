@@ -64,72 +64,72 @@ _is_dark = (_theme == "dark")
 
 # CSS variable sets
 _dark_vars = """
-    --bg-app:      #0a0f0e;
-    --bg-main:     #111716;
-    --bg-card:     #111716;
-    --bg-card2:    #151d1c;
-    --border:      #233029;
-    --border2:     #2c3a32;
-    --text-prim:   #eef3f0;
-    --text-sec:    #8fa49a;
-    --text-tert:   #5c7268;
-    --accent:      #ff9d2e;
-    --accent2:     #e8821a;
-    --sidebar-bg:  #070a09;
-    --metric-bg:   #111716;
-    --metric-bdr:  #233029;
-    --metric-val:  #eef3f0;
-    --metric-lbl:  #5c7268;
-    --banner-bg:   linear-gradient(135deg,#1a2420 0%,#0e1413 100%);
-    --banner-bdr:  #2c3a32;
-    --banner-text: #c7d8d0;
-    --banner-code-bg: rgba(255,157,46,0.12);
-    --banner-code:    #ffb35c;
-    --tip-bg:      #11331f;
-    --tip-bdr:     #1d4a30;
-    --tip-text:    #7ad4a0;
-    --tip-strong:  #3ddc84;
-    --badge-good-bg:  #11331f; --badge-good-text:  #3ddc84;
-    --badge-mon-bg:   #4a3414; --badge-mon-text:   #ff9d2e;
-    --badge-over-bg:  #3a1414; --badge-over-text:  #ff5252;
-    --filter-bg:   #1a2420;   --filter-bdr: #2c3a32; --filter-text: #9fc4a8;
-    --autorename-bg:  #4a3414; --autorename-bdr: #5c3f12; --autorename-text: #ff9d2e;
-    --expander-bg: #111716;
-    --table-bdr:   #233029;
+    --bg-app:      #000C44;
+    --bg-main:     #051449;
+    --bg-card:     #051449;
+    --bg-card2:    #0a1d5c;
+    --border:      #16285f;
+    --border2:     #1e3270;
+    --text-prim:   #f2f5fb;
+    --text-sec:    #8fa0c9;
+    --text-tert:   #5a6ea0;
+    --accent:      #1E73BE;
+    --accent2:     #4a96da;
+    --sidebar-bg:  #000C44;
+    --metric-bg:   #051449;
+    --metric-bdr:  #16285f;
+    --metric-val:  #f2f5fb;
+    --metric-lbl:  #5a6ea0;
+    --banner-bg:   linear-gradient(135deg,#0a1d5c 0%,#000C44 100%);
+    --banner-bdr:  #1e3270;
+    --banner-text: #cdd9f2;
+    --banner-code-bg: rgba(30,115,190,0.18);
+    --banner-code:    #6fb3ec;
+    --tip-bg:      #0a1d5c;
+    --tip-bdr:     #1e3270;
+    --tip-text:    #aac4ec;
+    --tip-strong:  #4a96da;
+    --badge-good-bg:  #0d2e1e; --badge-good-text:  #3ddc84;
+    --badge-mon-bg:   #3a2d0d; --badge-mon-text:   #ffb84d;
+    --badge-over-bg:  #3a1010; --badge-over-text:  #ff6b6b;
+    --filter-bg:   #0a1d5c;   --filter-bdr: #1e3270; --filter-text: #8fa0c9;
+    --autorename-bg:  #3a2d0d; --autorename-bdr: #5c4814; --autorename-text: #ffb84d;
+    --expander-bg: #051449;
+    --table-bdr:   #16285f;
 """
 _light_vars = """
-    --bg-app:      #f2f4f2;
+    --bg-app:      #f3f6fb;
     --bg-main:     #ffffff;
     --bg-card:     #ffffff;
-    --bg-card2:    #f6f8f6;
-    --border:      #dde5e0;
-    --border2:     #c8d4cc;
-    --text-prim:   #0f1714;
-    --text-sec:    #4a5c54;
-    --text-tert:   #8a9a90;
-    --accent:      #e8821a;
-    --accent2:     #c46a10;
-    --sidebar-bg:  #070a09;
+    --bg-card2:    #eef3fa;
+    --border:      #dbe4f3;
+    --border2:     #c2d2ec;
+    --text-prim:   #000C44;
+    --text-sec:    #3a4f7a;
+    --text-tert:   #8294b8;
+    --accent:      #1E73BE;
+    --accent2:     #155a99;
+    --sidebar-bg:  #000C44;
     --metric-bg:   #ffffff;
-    --metric-bdr:  #e0e8e2;
-    --metric-val:  #0f1714;
-    --metric-lbl:  #7a8a80;
-    --banner-bg:   linear-gradient(135deg,#1a3a28 0%,#0d2618 100%);
-    --banner-bdr:  #2a5a3a;
-    --banner-text: #ddf0e4;
-    --banner-code-bg: rgba(255,255,255,0.15);
-    --banner-code:    #ffd9ab;
-    --tip-bg:      #f0fdf4;
-    --tip-bdr:     #bbf7d0;
-    --tip-text:    #14532d;
-    --tip-strong:  #166534;
+    --metric-bdr:  #dbe4f3;
+    --metric-val:  #000C44;
+    --metric-lbl:  #6b7da3;
+    --banner-bg:   linear-gradient(135deg,#1E73BE 0%,#000C44 100%);
+    --banner-bdr:  #1E73BE;
+    --banner-text: #eaf1fb;
+    --banner-code-bg: rgba(255,255,255,0.18);
+    --banner-code:    #d9ecfb;
+    --tip-bg:      #eaf3fc;
+    --tip-bdr:     #bcdcf5;
+    --tip-text:    #0d3a63;
+    --tip-strong:  #1E73BE;
     --badge-good-bg:  #dcfce7; --badge-good-text:  #15803d;
     --badge-mon-bg:   #fef3c7; --badge-mon-text:   #92400e;
     --badge-over-bg:  #fee2e2; --badge-over-text:  #b91c1c;
-    --filter-bg:   #f0faf3;   --filter-bdr: #cbe8d3; --filter-text: #2a5a3a;
+    --filter-bg:   #eaf3fc;   --filter-bdr: #bcdcf5; --filter-text: #0d3a63;
     --autorename-bg:  #fff7ed; --autorename-bdr: #fed7aa; --autorename-text: #9a4a0a;
-    --expander-bg: #f6f8f6;
-    --table-bdr:   #dde5e0;
+    --expander-bg: #eef3fa;
+    --table-bdr:   #dbe4f3;
 """
 
 _css_vars = _dark_vars if _is_dark else _light_vars
@@ -202,6 +202,14 @@ div[data-baseweb="input"] > div, div[data-baseweb="datepicker"] input {{
     background: var(--bg-card2) !important; border-color: var(--border) !important; border-radius: 4px !important;
 }}
 
+/* ── modern toggle switch (theme switcher) ── */
+div[data-testid="stToggle"] label div[data-baseweb="checkbox"] > div:first-child {{
+    background: var(--border2) !important;
+}}
+div[data-testid="stToggle"] label div[aria-checked="true"] {{
+    background: var(--accent) !important;
+}}
+
 /* ── nav menu ── */
 .nav-link {{ border-radius: 4px !important; margin: 1px 0 !important; font-size:13px !important; border-left: 3px solid transparent !important; }}
 .nav-link-selected {{ background: #151d1c !important; color: var(--accent) !important; border-left: 3px solid var(--accent) !important; }}
@@ -245,6 +253,7 @@ div[data-testid="stMetricDelta"]        {{ font-family: var(--mono) !important; 
 .chip-amber  {{ background:#4a3414; color:#ff9d2e; border-color:#5c3f12; }}
 .chip-red    {{ background:#3a1414; color:#ff5252; border-color:#5c1818; }}
 .chip-gray   {{ background:#151d1c; color:#8fa49a; border-color:#233029; }}
+.chip-purple {{ background:#241a3a; color:#c9a8ff; border-color:#3a2a5c; }}
 
 /* ── compliance badges ── */
 .badge {{ display:inline-block; padding:3px 9px; border-radius:3px; font-family: var(--mono); font-size:10.5px; font-weight:600; letter-spacing:0.04em; }}
@@ -352,7 +361,7 @@ EXPECTED_COLS = [
 NEW_COLS = ["Euro_Standard","Vehicle_Age_years","AC_Status","Num_Trips_Today","Engine_Model"]
 ALL_COLS = EXPECTED_COLS + NEW_COLS
 
-PALETTE  = ["#ff9d2e","#3ddc84","#5cc8c8","#ff5252","#c9a8ff","#ffd166","#7fb8a8","#8fa49a"]
+PALETTE  = ["#1E73BE","#3ddc84","#5cc8c8","#ff5252","#c9a8ff","#ffd166","#7fb8a8","#8fa49a"]
 PLY_BASE = dict(
     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     font=dict(family="Inter",size=12,color="#eef3f0" if _is_dark else "#0f1714"),
@@ -425,9 +434,9 @@ with st.sidebar:
     st.markdown("""
     <div style="background:#0d1413;padding:20px 16px 16px;margin:-1rem -1rem 0;border-bottom:1px solid #233029;">
         <div style="display:flex;align-items:center;gap:11px;">
-            <div style="width:36px;height:36px;border:2px solid #ff9d2e;border-radius:3px;
+            <div style="width:36px;height:36px;border:2px solid #1E73BE;border-radius:3px;
                         display:flex;align-items:center;justify-content:center;
-                        font-family:'Oswald',sans-serif;font-weight:700;color:#ff9d2e;font-size:13px;flex-shrink:0;">LM</div>
+                        font-family:'Oswald',sans-serif;font-weight:700;color:#1E73BE;font-size:13px;flex-shrink:0;">LM</div>
             <div>
                 <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;color:#eef3f0;letter-spacing:0.02em;">LAMATA</div>
                 <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#5c7268;margin-top:2px;letter-spacing:0.06em;">EMISSIONS PORTAL</div>
@@ -436,27 +445,26 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    # Theme toggle
-    col_tog1, col_tog2 = st.columns([1,1])
-    with col_tog1:
-        if st.button("☀️ Light" if _is_dark else "☀️ Light",
-                     key="tog_light", use_container_width=True,
-                     type="secondary"):
-            st.session_state.theme = "light"
-            st.rerun()
-    with col_tog2:
-        if st.button("🌙 Dark" if not _is_dark else "🌙 Dark",
-                     key="tog_dark", use_container_width=True,
-                     type="primary" if _is_dark else "secondary"):
-            st.session_state.theme = "dark"
-            st.rerun()
+    # Theme toggle — modern switch, right-aligned
+    tcol1, tcol2 = st.columns([2, 1])
+    with tcol1:
+        st.markdown(
+            '<div style="font-family:var(--mono);font-size:10.5px;color:#5a6ea0;'
+            'letter-spacing:0.05em;padding-top:9px;">DARK MODE</div>',
+            unsafe_allow_html=True)
+    with tcol2:
+        is_dark_toggle = st.toggle(" ", value=_is_dark, key="theme_toggle", label_visibility="collapsed")
+    new_theme = "dark" if is_dark_toggle else "light"
+    if new_theme != st.session_state.theme:
+        st.session_state.theme = new_theme
+        st.rerun()
 
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 
     selected_module = option_menu(
         menu_title=None,
-        options=["Dashboard","Fleet Intelligence","Pollutant Engine","Bus Efficiency","Trip Inspector","Deep Search"],
-        icons=["speedometer2","diagram-3","cloud-haze2","bus-front","search-heart","table"],
+        options=["Dashboard","Fleet Intelligence","Pollutant Engine","Bus Efficiency","Trip Inspector","Formula Explainer","Deep Search"],
+        icons=["speedometer2","diagram-3","cloud-haze2","bus-front","search-heart","calculator","table"],
         default_index=0,
         styles={
             "container":         {"padding":"0!important","background-color":"transparent"},
@@ -464,8 +472,8 @@ with st.sidebar:
             "nav-link":          {"font-size":"12.5px","text-align":"left","margin":"1px 0",
                                   "color":"#8fa49a","--hover-color":"#0d1413","padding":"9px 14px",
                                   "border-left":"3px solid transparent"},
-            "nav-link-selected": {"background-color":"#151d1c","color":"#ff9d2e",
-                                  "font-weight":"600","border-radius":"4px","border-left":"3px solid #ff9d2e"},
+            "nav-link-selected": {"background-color":"#0a1d5c","color":"#1E73BE",
+                                  "font-weight":"600","border-radius":"4px","border-left":"3px solid #1E73BE"},
         },
     )
 
@@ -508,6 +516,8 @@ with st.sidebar:
     if "active_euro"     not in st.session_state: st.session_state.active_euro     = None
     if "active_fuel"     not in st.session_state: st.session_state.active_fuel     = None
     if "active_category" not in st.session_state: st.session_state.active_category = None
+    if "active_month"    not in st.session_state: st.session_state.active_month    = None
+    if "active_daterange" not in st.session_state: st.session_state.active_daterange = None
 
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
         text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Quick Filters</div>""",
@@ -518,11 +528,14 @@ with st.sidebar:
     if st.button("✕ Clear all filters", use_container_width=True,
                  type="secondary" if any([st.session_state.active_operator,
                     st.session_state.active_euro,st.session_state.active_fuel,
-                    st.session_state.active_category]) else "secondary"):
+                    st.session_state.active_category,st.session_state.active_month,
+                    st.session_state.active_daterange]) else "secondary"):
         st.session_state.active_operator = None
         st.session_state.active_euro     = None
         st.session_state.active_fuel     = None
         st.session_state.active_category = None
+        st.session_state.active_month    = None
+        st.session_state.active_daterange = None
 
     st.markdown("---")
     st.markdown(
@@ -694,6 +707,7 @@ def load_and_calc(files, method, pollutants):
         if parsed.isna().mean() > 0.5:
             parsed = pd.to_datetime(df["Date"], errors="coerce")
         df["Date"] = parsed.dt.date
+        df["Month"] = parsed.dt.strftime("%b %Y")
 
     # ── Revenue_Trip: numeric = revenue amount in Naira; a trip only
     # counts as "revenue" if that amount is actually > 0 (per row, not blanket) ──
@@ -865,6 +879,11 @@ def apply_filters(src):
     if st.session_state.active_euro:     d = d[d["Euro_Standard"] == st.session_state.active_euro]
     if st.session_state.active_fuel:     d = d[d["Fuel_Type"]  == st.session_state.active_fuel]
     if st.session_state.active_category: d = d[d["Bus_Category"]== st.session_state.active_category]
+    if st.session_state.active_month and "Month" in d.columns:
+        d = d[d["Month"] == st.session_state.active_month]
+    if st.session_state.active_daterange and "Date" in d.columns:
+        start, end = st.session_state.active_daterange
+        d = d[(d["Date"] >= start) & (d["Date"] <= end)]
     if exclude_unmapped:
         if "Category_Unmapped" in d.columns: d = d[~d["Category_Unmapped"]]
         if "Fuel_Unmapped"     in d.columns: d = d[~d["Fuel_Unmapped"]]
@@ -878,14 +897,17 @@ active_filters = {k:v for k,v in {
     "Euro":      st.session_state.active_euro,
     "Fuel":      st.session_state.active_fuel,
     "Category":  st.session_state.active_category,
+    "Month":     st.session_state.active_month,
+    "Date range": f"{st.session_state.active_daterange[0]} → {st.session_state.active_daterange[1]}"
+                  if st.session_state.active_daterange else None,
 }.items() if v}
 
 if active_filters:
-    chip_map = {"Operator":"chip-blue","Euro":"chip-purple","Fuel":"chip-green","Category":"chip-amber"}
+    chip_map = {"Operator":"chip-blue","Euro":"chip-purple","Fuel":"chip-green",
+                "Category":"chip-amber","Month":"chip-blue","Date range":"chip-blue"}
     chips_html = " ".join(chip(f"{k}: {v}", chip_map.get(k,"chip-gray")) for k,v in active_filters.items())
     st.markdown(
-        f'<div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;'
-        f'padding:10px 14px;margin-bottom:14px;font-size:12px;color:#78350f;">'
+        f'<div class="filter-bar">'
         f'<strong>Active filters:</strong>&nbsp; {chips_html}</div>',
         unsafe_allow_html=True)
 
@@ -921,89 +943,68 @@ if selected_module == "Dashboard":
     k5.metric("Over-limit trips",  str(over_ct), delta=f"{over_ct} need review", delta_color="inverse")
     k6.metric("A/C CO₂ uplift",    fmt_kg(ac_uplift), delta=f"{ac_trips} A/C trips")
 
-    st.markdown('<div class="sec-label">Filter by attribute — click to drill down</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec-label">Filter by attribute — dropdowns apply across all modules</div>', unsafe_allow_html=True)
 
-    # ── Quick-filter row: Euro · Fuel · Category (chips, small set) ──
-    chip_r1, chip_r2, chip_r3 = st.columns(3)
-    with chip_r1:
-        st.markdown('<div style="font-size:11px;color:var(--text-tert);font-weight:500;'
-                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;">Euro standard</div>',
-                    unsafe_allow_html=True)
-        euros = sorted(df["Euro_Standard"].unique())
-        for eu in euros:
-            is_active = st.session_state.active_euro == eu
-            if st.button(("✓ " if is_active else "") + eu, key=f"eu_{eu}",
-                         type="primary" if is_active else "secondary", use_container_width=True):
-                st.session_state.active_euro = None if is_active else eu
-                st.rerun()
-    with chip_r2:
-        st.markdown('<div style="font-size:11px;color:var(--text-tert);font-weight:500;'
-                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;">Fuel type</div>',
-                    unsafe_allow_html=True)
-        fuels = sorted(df["Fuel_Type"].unique())
-        for fu in fuels:
-            is_active = st.session_state.active_fuel == fu
-            if st.button(("✓ " if is_active else "") + fu, key=f"fu_{fu}",
-                         type="primary" if is_active else "secondary", use_container_width=True):
-                st.session_state.active_fuel = None if is_active else fu
-                st.rerun()
-    with chip_r3:
-        st.markdown('<div style="font-size:11px;color:var(--text-tert);font-weight:500;'
-                    'text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px;">Bus category</div>',
-                    unsafe_allow_html=True)
-        cats = sorted(df["Bus_Category"].unique())
-        for ca in cats:
-            is_active = st.session_state.active_category == ca
-            if st.button(("✓ " if is_active else "") + ca, key=f"ca_{ca}",
-                         type="primary" if is_active else "secondary", use_container_width=True):
-                st.session_state.active_category = None if is_active else ca
-                st.rerun()
-
-    # ── Operator selector: searchable dropdown for large fleets ──
-    st.markdown('<div class="sec-label">Operator drill-down</div>', unsafe_allow_html=True)
+    # ── Dropdown filter bar: Operator · Month · Date range · Euro · Fuel · Category ──
+    months_all = sorted(df["Month"].dropna().unique(), key=lambda m: pd.to_datetime(m, format="%b %Y")) \
+                 if "Month" in df.columns else []
     ops_all   = sorted(df["Operator"].unique())
-    op_search = st.text_input("🔍 Search operators", placeholder="Type operator name…",
-                               key="op_search_box", label_visibility="collapsed")
-    ops_shown = [o for o in ops_all if op_search.lower() in o.lower()] if op_search else ops_all
+    euros_all = sorted(df["Euro_Standard"].unique())
+    fuels_all = sorted(df["Fuel_Type"].unique())
+    cats_all  = sorted(df["Bus_Category"].unique())
 
-    # Operator CO2 summary for the rank bars
-    op_co2_map = {}
-    if "CO2_kg" in df.columns:
-        op_co2_map = df.groupby("Operator")["CO2_kg"].sum().to_dict()
-    max_co2 = max(op_co2_map.values(), default=1)
+    fc1, fc2, fc3 = st.columns(3)
+    with fc1:
+        op_choice = st.selectbox("Operator", ["All"] + ops_all,
+            index=0 if not st.session_state.active_operator else
+                  (ops_all.index(st.session_state.active_operator) + 1
+                   if st.session_state.active_operator in ops_all else 0))
+        new_op = None if op_choice == "All" else op_choice
+        if new_op != st.session_state.active_operator:
+            st.session_state.active_operator = new_op; st.rerun()
+    with fc2:
+        month_choice = st.selectbox("Month", ["All"] + months_all,
+            index=0 if not st.session_state.active_month else
+                  (months_all.index(st.session_state.active_month) + 1
+                   if st.session_state.active_month in months_all else 0))
+        new_month = None if month_choice == "All" else month_choice
+        if new_month != st.session_state.active_month:
+            st.session_state.active_month = new_month; st.rerun()
+    with fc3:
+        if "Date" in df.columns and df["Date"].notna().any():
+            dmin, dmax = df["Date"].min(), df["Date"].max()
+            current = st.session_state.active_daterange or (dmin, dmax)
+            dr = st.date_input("Date range", value=current, min_value=dmin, max_value=dmax)
+            if isinstance(dr, tuple) and len(dr) == 2:
+                new_dr = None if dr == (dmin, dmax) else dr
+                if new_dr != st.session_state.active_daterange:
+                    st.session_state.active_daterange = new_dr; st.rerun()
 
-    # Render operator cards in a scrollable container
-    op_html = '<div style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;">'
-    for op in ops_shown[:60]:  # cap at 60 for performance
-        is_sel = st.session_state.active_operator == op
-        co2_v  = op_co2_map.get(op, 0)
-        pct    = co2_v / max_co2 * 100 if max_co2 > 0 else 0
-        trips  = int(df[df["Operator"]==op].shape[0])
-        highlight = "border-color:var(--accent);box-shadow:0 0 0 1.5px var(--accent);" if is_sel else ""
-        op_html += f"""
-        <div class="op-card" style="{highlight}cursor:pointer;" onclick="window.parent.postMessage({{type:'streamlit:setComponentValue',value:'{op}'}}, '*')">
-            <div class="op-name">{"✓ " if is_sel else ""}{op}</div>
-            <div class="op-meta">{trips} trips · {co2_v:,.0f} kg CO₂</div>
-            <div class="op-bar-bg"><div class="op-bar" style="width:{pct:.1f}%;"></div></div>
-        </div>"""
-    op_html += "</div>"
-    st.markdown(op_html, unsafe_allow_html=True)
-
-    # Streamlit-native operator selector (functional fallback)
-    op_choice = st.selectbox(
-        "Select operator to filter",
-        ["(none)"] + ops_shown,
-        index=0 if st.session_state.active_operator not in ops_shown
-              else ops_shown.index(st.session_state.active_operator) + 1,
-        key="op_selectbox",
-        label_visibility="collapsed",
-    )
-    if op_choice != "(none)" and op_choice != st.session_state.active_operator:
-        st.session_state.active_operator = op_choice
-        st.rerun()
-    elif op_choice == "(none)" and st.session_state.active_operator:
-        st.session_state.active_operator = None
-        st.rerun()
+    fc4, fc5, fc6 = st.columns(3)
+    with fc4:
+        eu_choice = st.selectbox("Euro standard", ["All"] + euros_all,
+            index=0 if not st.session_state.active_euro else
+                  (euros_all.index(st.session_state.active_euro) + 1
+                   if st.session_state.active_euro in euros_all else 0))
+        new_eu = None if eu_choice == "All" else eu_choice
+        if new_eu != st.session_state.active_euro:
+            st.session_state.active_euro = new_eu; st.rerun()
+    with fc5:
+        fu_choice = st.selectbox("Fuel type", ["All"] + fuels_all,
+            index=0 if not st.session_state.active_fuel else
+                  (fuels_all.index(st.session_state.active_fuel) + 1
+                   if st.session_state.active_fuel in fuels_all else 0))
+        new_fu = None if fu_choice == "All" else fu_choice
+        if new_fu != st.session_state.active_fuel:
+            st.session_state.active_fuel = new_fu; st.rerun()
+    with fc6:
+        ca_choice = st.selectbox("Bus category", ["All"] + cats_all,
+            index=0 if not st.session_state.active_category else
+                  (cats_all.index(st.session_state.active_category) + 1
+                   if st.session_state.active_category in cats_all else 0))
+        new_ca = None if ca_choice == "All" else ca_choice
+        if new_ca != st.session_state.active_category:
+            st.session_state.active_category = new_ca; st.rerun()
 
     st.markdown('<div class="sec-label">Emission overview</div>', unsafe_allow_html=True)
 
@@ -1039,7 +1040,7 @@ if selected_module == "Dashboard":
         daily["Date"] = daily["Date"].astype(str)
         fig3 = px.area(daily, x="Date", y="CO2_kg",
                        title="Daily CO₂ total",
-                       color_discrete_sequence=["#ff9d2e"])
+                       color_discrete_sequence=["#1E73BE"])
         fig3.update_traces(fillcolor="rgba(26,115,232,0.10)", line_width=2.5)
         fig3.update_layout(**PLY_BASE, title_font_size=13, xaxis_title="", yaxis_title="kg CO₂")
         st.plotly_chart(fig3, use_container_width=True)
@@ -1161,7 +1162,7 @@ elif selected_module == "Fleet Intelligence":
             # Fleet age distribution
             fig2 = px.histogram(fdf.drop_duplicates("Bus_ID"), x="Vehicle_Age_years",
                                 nbins=10, title="Fleet age distribution",
-                                color_discrete_sequence=["#ff9d2e"])
+                                color_discrete_sequence=["#1E73BE"])
             fig2.update_layout(**PLY_BASE, title_font_size=13,
                                xaxis_title="Age (years)", yaxis_title="Vehicles")
             st.plotly_chart(fig2, use_container_width=True)
@@ -1393,7 +1394,7 @@ elif selected_module == "Trip Inspector":
     with col_l:
         labels  = ["Hot running","Cold start","Idling","A/C load","Grid (EV)"]
         raw_g   = [bd["hot_running"],bd["cold_start"],bd["idling"],bd["ac_load"],bd["grid_electric"]]
-        colors  = ["#5cc8c8","#ff9d2e","#ff5252","#3ddc84","#c9a8ff"]
+        colors  = ["#1E73BE","#ffb84d","#ff5252","#3ddc84","#c9a8ff"]
         total_g = max(bd["total_g"],1)
 
         for lbl, grams, col in zip(labels, raw_g, colors):
@@ -1460,6 +1461,166 @@ elif selected_module == "Trip Inspector":
     r3.metric("Reduce daily trips",   f"−{trip_save:.3f} kg")
     r4.metric("Combined saving",      f"−{total_save:.3f} kg",
               delta=f"{total_save/(bd['total_g']/1000)*100:.0f}% reduction" if bd["total_g"] > 0 else None)
+
+# ════════════════════════════════════════════════════════
+# MODULE 5b — FORMULA EXPLAINER
+# ════════════════════════════════════════════════════════
+elif selected_module == "Formula Explainer":
+    st.markdown("## 🧮 Formula Explainer")
+    st.markdown(
+        f'<div class="banner">Pick any trip below and this walks through every multiplier and addend the '
+        f'<strong>{methodology}</strong> engine applies to it, in order, with your data\'s actual numbers '
+        f'substituted in — so the final kg CO₂ figure isn\'t a black box.</div>',
+        unsafe_allow_html=True)
+
+    ec1, ec2, ec3 = st.columns(3)
+    with ec1:
+        e_op = st.selectbox("Operator", ["Any"] + sorted(fdf["Operator"].unique()), key="fe_op")
+    pool = fdf if e_op == "Any" else fdf[fdf["Operator"] == e_op]
+    with ec2:
+        e_bus = st.selectbox("Bus ID", sorted(pool["Bus_ID"].unique()), key="fe_bus")
+    bus_trips = pool[pool["Bus_ID"] == e_bus].reset_index(drop=True)
+    with ec3:
+        e_labels = [f"{r.get('Date','')} · {r.get('Route_Name','')[:28]}" for _, r in bus_trips.iterrows()]
+        e_idx = st.selectbox("Trip", range(len(e_labels)), format_func=lambda i: e_labels[i], key="fe_trip")
+    trip = bus_trips.iloc[e_idx]
+
+    # ── Re-derive every intermediate value, mirroring emissions_engine.calculate_row ──
+    import emissions_engine as _em
+    bus_cat, _cm = _em.normalize_category(str(trip.get("Bus_Category","")))
+    fuel, _fm    = _em.normalize_fuel(str(trip.get("Fuel_Type","")))
+    distance     = float(trip.get("Route_Distance_km", 0) or 0)
+    speed        = float(trip.get("Avg_Speed_kmh", 25) or 25)
+    ridership    = max(1, int(trip.get("Ridership", 1) or 1))
+    euro         = str(trip.get("Euro_Standard", _em.DEFAULT_EURO))
+    age          = int(trip.get("Vehicle_Age_years", 0) or 0)
+    ac_on        = str(trip.get("AC_Status","")).lower() in ("true","1")
+    num_trips    = max(1, int(trip.get("Num_Trips_Today", 1) or 1))
+    engine_model = str(trip.get("Engine_Model",""))
+    is_revenue   = _em.parse_revenue_trip(trip.get("Revenue_Trip","True"))
+
+    cat_data     = _em.BASE_FACTORS.get(bus_cat, {})
+    fuel_profile = cat_data.get(fuel, _em.FALLBACK_FACTORS)
+    capacity     = int(fuel_profile.get("capacity", 80))
+    base_co2     = float(fuel_profile.get("CO2", 0.0))
+    eng_corr     = _em.ENGINE_CO2_CORRECTION.get(engine_model, _em.DEFAULT_ENGINE_CORRECTION)
+    age_mults    = _em.age_deterioration(age, fuel)
+    age_co2      = age_mults["CO2"]
+    euro_mults   = _em.EURO_FACTORS.get(euro, _em.EURO_FACTORS[_em.DEFAULT_EURO])
+    load_c       = _em._load_corr(ridership, capacity)
+
+    if fuel == "Electric":
+        kwh_per_km = float(fuel_profile.get("kwh_per_km", 1.5))
+        st.markdown('<div class="sec-label">Step 1 — Electric buses use Scope 2 grid intensity, not combustion factors</div>', unsafe_allow_html=True)
+        st.latex(r"CO_2\,(kg) = \text{kWh/km} \times \text{distance} \times \text{Grid EF}")
+        st.code(f"CO2 = {kwh_per_km} kWh/km × {distance:.1f} km × {_em.GRID_EF_KG_PER_KWH} kg/kWh"
+                f" = {kwh_per_km*distance*_em.GRID_EF_KG_PER_KWH:.3f} kg",
+                language=None)
+        st.markdown(
+            f'<div class="tip">Nigeria grid emission factor of <strong>{_em.GRID_EF_KG_PER_KWH} kg CO₂e/kWh</strong> '
+            f'is IEA 2023\'s regional estimate — applied because the bus itself has zero tailpipe emissions, '
+            f'but the electricity that charged it didn\'t come from nowhere.</div>', unsafe_allow_html=True)
+    else:
+        ef_after_engine = base_co2 * eng_corr
+        ef_after_age    = ef_after_engine * age_co2
+
+        st.markdown('<div class="sec-label">Step 1 — Base emission factor</div>', unsafe_allow_html=True)
+        st.latex(r"EF_{base} = \text{BASE\_FACTORS}[\text{category}][\text{fuel}][\text{CO}_2]")
+        st.code(f"EF_base = BASE_FACTORS['{bus_cat}']['{fuel}']['CO2'] = {base_co2:.1f} g/km", language=None)
+        st.markdown(f'<div class="tip">Reference Euro III diesel/petrol/CNG/biogas factor for a '
+                    f'<strong>{bus_cat}</strong> bus on <strong>{fuel}</strong>, from IPCC 2006 Tier 2 + '
+                    f'COPERT V West-Africa calibration. Capacity assumed: {capacity} seats.</div>',
+                    unsafe_allow_html=True)
+
+        st.markdown('<div class="sec-label">Step 2 — Engine model correction (CO₂ only)</div>', unsafe_allow_html=True)
+        st.latex(r"EF_1 = EF_{base} \times \text{EngineCorrection}")
+        st.code(f"EF_1 = {base_co2:.1f} × {eng_corr:.2f}  ({engine_model or 'no engine model — default 1.00'})"
+                f" = {ef_after_engine:.1f} g/km", language=None)
+
+        st.markdown('<div class="sec-label">Step 3 — Vehicle age deterioration</div>', unsafe_allow_html=True)
+        st.latex(r"EF_2 = EF_1 \times (1 + 0.004 \times \text{age\_years})")
+        st.code(f"EF_2 = {ef_after_engine:.1f} × (1 + 0.004 × {age})  = {ef_after_engine:.1f} × {age_co2:.3f}"
+                f" = {ef_after_age:.1f} g/km", language=None)
+        st.markdown(f'<div class="tip">+0.4%/year CO₂ degradation (COPERT model) — a {age}-year-old bus burns '
+                    f'<strong>{(age_co2-1)*100:.1f}% more</strong> fuel per km than new, all else equal.</div>',
+                    unsafe_allow_html=True)
+
+        st.markdown('<div class="sec-label">Step 4 — Hot running emissions over the route</div>', unsafe_allow_html=True)
+        if methodology == "COPERT" or (methodology == "Hybrid" and False):
+            spd_factor = _em._spd_co2(speed)
+            st.latex(r"E_{hot} = EF_2 \times f_{speed}(v) \times \text{distance}")
+            st.code(f"f_speed({speed:.0f} km/h) = 0.4 + 53/{speed:.0f} + {speed:.0f}/180 = {spd_factor:.3f}\n"
+                    f"E_hot = {ef_after_age:.1f} × {spd_factor:.3f} × {distance:.1f} km = "
+                    f"{ef_after_age*spd_factor*distance:.0f} g", language=None)
+            hot_g = ef_after_age * spd_factor * distance
+        else:
+            st.latex(r"E_{hot} = EF_2 \times \text{distance}")
+            st.code(f"E_hot = {ef_after_age:.1f} g/km × {distance:.1f} km = {ef_after_age*distance:.0f} g", language=None)
+            hot_g = ef_after_age * distance
+            if methodology == "Hybrid":
+                st.markdown('<div class="tip">Hybrid methodology keeps CO₂ on the simpler IPCC distance-based '
+                            'formula — only NOx/PM use the COPERT speed curve, since CO₂ tracks fuel burned '
+                            'far more linearly with distance than with traffic speed.</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="sec-label">Step 5 — Cold start penalty</div>', unsafe_allow_html=True)
+        cold_km = min(distance, _em.COLD_START_KM)
+        cold_extra = ef_after_age * cold_km * (_em.COLD_START_MULT["CO2"] - 1.0) * num_trips
+        st.latex(r"E_{cold} = EF_2 \times \min(\text{distance}, 5\text{km}) \times (1.18 - 1) \times \text{trips/day}")
+        st.code(f"E_cold = {ef_after_age:.1f} × {cold_km:.1f} km × 0.18 × {num_trips} trips = {cold_extra:.0f} g",
+                language=None)
+        st.markdown(f'<div class="tip">First 5km of <em>every</em> trip run rich while the engine warms — scaled '
+                    f'by <strong>{num_trips}</strong> trips/day for this bus, per EMEP/EEA Guidebook Table 3-27.</div>',
+                    unsafe_allow_html=True)
+
+        st.markdown('<div class="sec-label">Step 6 — Idling</div>', unsafe_allow_html=True)
+        idle_min = float(trip.get("Idle_Minutes", _em.DEFAULT_IDLE_MINUTES))
+        idle_ef  = _em.IDLING_EF.get(bus_cat, {}).get(fuel, {}).get("CO2", 0.0)
+        idle_g   = idle_ef * idle_min
+        st.latex(r"E_{idle} = EF_{idle} \times \text{idle\_minutes}")
+        st.code(f"E_idle = {idle_ef:.1f} g/min × {idle_min:.0f} min = {idle_g:.0f} g", language=None)
+
+        st.markdown('<div class="sec-label">Step 7 — A/C uplift</div>', unsafe_allow_html=True)
+        ac_extra = hot_g * _em.AC_UPLIFT_CO2 if ac_on else 0.0
+        st.latex(r"E_{ac} = E_{hot} \times 0.08 \quad \text{(if A/C on)}")
+        st.code(f"A/C status: {'ON' if ac_on else 'OFF'}  →  E_ac = "
+                f"{(str(hot_g*0.08)+' g') if ac_on else '0 g (not applied)'}", language=None)
+
+        st.markdown('<div class="sec-label">Step 8 — Load factor correction</div>', unsafe_allow_html=True)
+        st.latex(r"\text{LoadCorr} = 1 + (\min(\text{ridership/capacity}, 1.2) - 0.5) \times 0.05")
+        st.code(f"ridership/capacity = {ridership}/{capacity} = {ridership/capacity:.2f}\n"
+                f"LoadCorr = 1 + ({min(ridership/capacity,1.2):.2f} - 0.5) × 0.05 = {load_c:.4f}", language=None)
+        st.markdown('<div class="tip">A fuller bus weighs more and burns marginally more fuel — this nudges '
+                    'the total by a few percent in either direction depending on load.</div>', unsafe_allow_html=True)
+
+        total_g = (hot_g + cold_extra + idle_g + ac_extra) * load_c
+        st.markdown('<div class="sec-label">Step 9 — Total, and per-passenger figure</div>', unsafe_allow_html=True)
+        st.latex(r"Total = (E_{hot} + E_{cold} + E_{idle} + E_{ac}) \times \text{LoadCorr}")
+        st.code(f"Total = ({hot_g:.0f} + {cold_extra:.0f} + {idle_g:.0f} + {ac_extra:.0f}) × {load_c:.4f}"
+                f" = {total_g:.0f} g = {total_g/1000:.3f} kg", language=None)
+        if is_revenue:
+            gpkm = total_g / ridership
+            st.latex(r"CO_2\,(g/pkm) = \frac{Total\,(g)}{ridership}")
+            st.code(f"CO2_g_pkm = {total_g:.0f} g ÷ {ridership} passengers = {gpkm:.2f} g/pkm", language=None)
+            flag_thresholds = {"High Capacity": (30,55), "Midi": (45,75), "Mini": (60,95)}.get(bus_cat, (40,70))
+            st.markdown(gauge_svg(gpkm, flag_thresholds[0], flag_thresholds[1]), unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="tip">This wasn\'t a revenue trip (Revenue_Trip = 0/False), so it doesn\'t '
+                        'carry a g/pkm compliance figure — only revenue trips are divided by ridership for the '
+                        'compliance gauge, since deadheading/positioning runs have no fare-paying passengers.</div>',
+                        unsafe_allow_html=True)
+
+    with st.expander("📚 Where every constant comes from"):
+        st.markdown("""
+- **Base factors** — IPCC 2006 Tier 2 + COPERT V West-Africa fleet calibration, Euro III reference.
+- **Euro class multipliers** (NOx/PM only) — EEA COPERT V Technical Report No 12, Table 4.1. CO₂ is *not*
+  adjusted by Euro class — after-treatment changes pollutant chemistry, not carbon output.
+- **Age deterioration** — COPERT degradation model: +0.4%/yr CO₂, +1.5%/yr NOx (diesel/petrol), +2.0%/yr PM.
+- **Cold start** — EMEP/EEA Guidebook Table 3-27, applied to the first 5km of each trip, scaled by trips/day.
+- **A/C uplift** — CARB 2021, 8% CO₂ uplift for heavy-duty buses in warm climates, applied per-trip only when
+  `AC_Status` is true for that row (not assumed always-on).
+- **Electric grid factor** — IEA 2023 regional estimate for Nigeria: 0.46 kg CO₂e/kWh.
+- **Speed-correction curves** (COPERT/Hybrid NOx & PM) — fitted functions approximating COPERT V speed bands.
+        """)
 
 # ════════════════════════════════════════════════════════
 # MODULE 6 — DEEP SEARCH
