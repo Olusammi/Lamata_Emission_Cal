@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 from emissions_engine import calculate_row, emission_breakdown, compliance_flag
 import db
+import ai_engine
 import themes as themes_mod
 
 APP_NAME    = "Fleet Emissions Console"
@@ -287,6 +288,39 @@ div[data-testid="stTabs"] button[aria-selected="true"] {{ color: var(--accent) !
 .gauge-status.good    {{ background: var(--badge-good-bg); color: var(--badge-good-text); }}
 .gauge-status.monitor {{ background: var(--badge-mon-bg);  color: var(--badge-mon-text); }}
 .gauge-status.over    {{ background: var(--badge-over-bg); color: var(--badge-over-text); }}
+
+/* ── Floating AI assistant ── */
+.st-key-ai_fab button {{
+    position: fixed !important; bottom: 26px; right: 26px;
+    width: 58px; height: 58px; border-radius: 50% !important;
+    z-index: 1000001; font-size: 24px !important; line-height: 1 !important;
+    background: var(--accent) !important; color: #ffffff !important;
+    border: none !important; box-shadow: 0 10px 28px rgba(0,0,0,0.45) !important;
+    transition: transform .15s ease;
+}}
+.st-key-ai_fab button:hover {{ transform: scale(1.08); }}
+.st-key-ai_panel {{
+    position: fixed !important; bottom: 96px; right: 26px;
+    width: 400px; max-width: calc(100vw - 40px);
+    max-height: 64vh; overflow-y: auto; z-index: 1000000;
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border2) !important; border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.5);
+    padding: 14px 16px 10px !important;
+}}
+.st-key-ai_panel .ai-head {{ display:flex; align-items:center; gap:8px;
+    font-family: var(--disp); font-size: 14px; font-weight: 600;
+    color: var(--text-prim); padding-bottom: 6px;
+    border-bottom: 1px solid var(--border); margin-bottom: 8px; }}
+.st-key-ai_panel .ai-sub {{ font-family: var(--mono); font-size: 9.5px;
+    color: var(--text-tert); letter-spacing: .05em; }}
+.ai-msg-u, .ai-msg-a {{ border-radius: 10px; padding: 8px 11px;
+    font-size: 12.5px; line-height: 1.5; margin: 6px 0; }}
+.ai-msg-u {{ background: var(--banner-code-bg); color: var(--text-prim);
+    margin-left: 36px; }}
+.ai-msg-a {{ background: var(--bg-card2); color: var(--text-sec);
+    border: 1px solid var(--border); margin-right: 12px; }}
+.ai-msg-a strong {{ color: var(--text-prim); }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -641,6 +675,81 @@ MODULE_INTRO = {
                           "Filter, inspect and export the full calculated manifest as CSV."),
 }
 
+import html as _html
+
+def render_ai_assistant(data):
+    """Floating Gemini assistant: FAB bottom-right, chat panel above it.
+    Renders on every page, with or without data."""
+    if "ai_open" not in st.session_state:
+        st.session_state.ai_open = False
+    if "ai_chat" not in st.session_state:
+        st.session_state.ai_chat = []
+
+    if st.button("✖" if st.session_state.ai_open else "✨", key="ai_fab",
+                 help="Fleet Assistant (Gemini)"):
+        st.session_state.ai_open = not st.session_state.ai_open
+        st.rerun()
+    if not st.session_state.ai_open:
+        return
+
+    with st.container(key="ai_panel"):
+        st.markdown('<div class="ai-head">✨ Fleet Assistant '
+                    '<span class="ai-sub">GEMINI · AGGREGATES ONLY</span></div>',
+                    unsafe_allow_html=True)
+
+        if not ai_engine.is_configured():
+            st.markdown('<div class="ai-msg-a">Not configured — add a '
+                        '<strong>[gemini] api_key</strong> to Streamlit secrets '
+                        'to enable me. Everything else works without it.</div>',
+                        unsafe_allow_html=True)
+            return
+        if data is None or len(data) == 0:
+            st.markdown('<div class="ai-msg-a">No data loaded yet — upload a '
+                        'manifest or connect the database, then ask me anything '
+                        'about the fleet.</div>', unsafe_allow_html=True)
+            return
+
+        fp = ai_engine.fingerprint(data)
+        pack = ai_engine.build_fact_pack(
+            data, target_pollutants, basis, methodology, ambient_c,
+            corridor_fn=globals().get("corridor_aggregate"))
+
+        for role, msg in st.session_state.ai_chat[-8:]:
+            cls = "ai-msg-u" if role == "user" else "ai-msg-a"
+            safe = _html.escape(msg).replace("\n", "<br>")
+            st.markdown(f'<div class="{cls}">{safe}</div>', unsafe_allow_html=True)
+
+        qc1, qc2 = st.columns(2)
+        with qc1:
+            if st.button("✨ Insights", key="ai_ins", use_container_width=True,
+                         help="4-5 decision-relevant observations from the current data"):
+                with st.spinner("Analysing the fleet…"):
+                    txt, _ok = ai_engine.generate_insights(pack, fp)
+                st.session_state.ai_chat.append(("assistant", txt))
+                st.rerun()
+        with qc2:
+            if st.button("🧹 Clear", key="ai_clr", use_container_width=True):
+                st.session_state.ai_chat = []
+                st.rerun()
+
+        with st.form("ai_form", clear_on_submit=True, border=False):
+            q = st.text_input("Ask", key="ai_q", label_visibility="collapsed",
+                              placeholder="e.g. which operator should we inspect first?")
+            sent = st.form_submit_button("Send ➤", use_container_width=True)
+        if sent and q.strip():
+            st.session_state.ai_chat.append(("user", q.strip()))
+            hist = "\n".join(f"{r}: {m}" for r, m in st.session_state.ai_chat[-7:-1])
+            with st.spinner("Thinking…"):
+                txt, _ok = ai_engine.answer_question(pack, q.strip(), hist, fp)
+            st.session_state.ai_chat.append(("assistant", txt))
+            st.rerun()
+
+        st.markdown('<div class="ai-sub" style="padding-top:6px;">Answers use '
+                    'pre-computed aggregate statistics only — raw trip rows never '
+                    'leave the server. Free-tier quota: cached answers are instant '
+                    'and cost nothing.</div>', unsafe_allow_html=True)
+
+
 def render_module_shell(module, db_connected=False):
     """Full interface, no data yet: draw the selected module's frame
     with a compact 'awaiting data' panel where its charts will be."""
@@ -948,6 +1057,7 @@ elif _db_state == "connected":
 
 if df is None and not uploaded_files:
     render_module_shell(selected_module, db_connected=(_db_state in ("connected", "empty")))
+    render_ai_assistant(None)
     st.stop()
 
 ok_files  = [f for f in file_log if f["status"] == "ok"]
@@ -1420,6 +1530,13 @@ if selected_module == "Dashboard":
                 f"<td style='text-align:right'>{r.CO2_kg:,.0f}</td></tr>"
                 for r in top.itertuples())
             _dates = f"{fdf['Date'].astype(str).min()} → {fdf['Date'].astype(str).max()}"
+            _ai_para = ""
+            if ai_engine.is_configured():
+                _p = ai_engine.build_fact_pack(fdf, target_pollutants, basis,
+                        methodology, ambient_c, corridor_fn=globals().get("corridor_aggregate"))
+                _n, _okn = ai_engine.report_narrative(_p, ai_engine.fingerprint(fdf))
+                if _okn:
+                    _ai_para = f"<h2>Executive summary</h2><p>{_n}</p>"
             html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'>
 <title>{APP_NAME} — Summary</title><style>
 body{{font-family:Arial,Helvetica,sans-serif;color:#16211c;margin:36px;}}
@@ -1432,7 +1549,7 @@ th{{background:#e8f1ec;}} .kpi{{display:inline-block;margin:8px 22px 8px 0;}}
 </style></head><body>
 <h1>{APP_NAME} — Fleet Summary</h1>
 <p>Period: {_dates} · Methodology: {methodology} · Basis: {st.session_state.eff_unit}
- · Ambient: {ambient_c} °C · Engine v4</p>
+ · Ambient: {ambient_c} °C · Engine v4</p>{_ai_para}
 <h2>Key figures</h2>
 <div class='kpi'><b>{fdf['CO2_kg'].sum()/1000:,.1f} t</b><span>Total CO₂</span></div>
 <div class='kpi'><b>{fdf['CO2_g_pkm'].mean():,.1f}</b><span>Avg {st.session_state.eff_unit}</span></div>
@@ -1788,6 +1905,19 @@ elif selected_module == "Fleet Health":
             figh.update_layout(height=340, margin=dict(l=10, r=10, t=10, b=10),
                                legend=dict(orientation="h"))
             st.plotly_chart(figh, use_container_width=True)
+
+        if ai_engine.is_configured() and len(b):
+            if st.button("🤖 Explain this pattern (AI)", key="ai_explain_bus"):
+                _r = show[show["Bus_ID"] == pick].iloc[0]
+                _desc = (f"Bus {pick} · operator {_r['Operator']} · {_r['Category']} {_r['Fuel']} · "
+                         f"{int(_r['Days'])} days observed, {int(_r['Anomalous_days'])} anomalous "
+                         f"(rate {_r['Anomaly_rate']}). Avg CO2 {_r['Avg_CO2_g_km']} g/km; "
+                         f"worst self-z {_r['Worst_self_z']}. Peer group: same category+fuel buses. "
+                         f"Daily CO2 g/km recent values: "
+                         + ", ".join(str(round(v,0)) for v in b['CO2_g_km'].tail(10)))
+                with st.spinner("Interpreting…"):
+                    _txt, _ok = ai_engine.explain_anomaly(_desc, ai_engine.fingerprint(fdf))
+                (st.info if _ok else st.warning)(_txt)
 
         if db.get_client() is not None and st.button("💾 Save health scores to database"):
             recs = [{"bus_id": r["Bus_ID"], "score": float(r["Anomaly_rate"]),
@@ -2404,7 +2534,7 @@ elif selected_module == "Deep Search":
     with col_dl1:
         st.download_button(
             "⬇ Download CSV", data=out[show_cols].to_csv(index=False).encode(),
-            file_name="lamata_export.csv", mime="text/csv", use_container_width=True)
+            file_name="fleet_export.csv", mime="text/csv", use_container_width=True)
         if data_source == "database" and db.get_client() is not None:
             if st.button("💾 Snapshot results to DB", use_container_width=True,
                          help="Stores these calculated emissions stamped with methodology, "
@@ -2415,3 +2545,6 @@ elif selected_module == "Deep Search":
                     st.warning(snap["error"])
                 else:
                     st.success(f"Snapshot saved — {snap['saved']:,} rows under '{methodology}'")
+
+# ── Floating AI assistant (renders over every module) ──
+render_ai_assistant(fdf)
