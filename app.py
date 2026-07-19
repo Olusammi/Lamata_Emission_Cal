@@ -10,6 +10,25 @@ import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 from emissions_engine import calculate_row, emission_breakdown, compliance_flag
 
+
+# ════════════════════════════════════════════════════════
+# 0.0 Test
+# ════════════════════════════════════════════════════════
+
+with st.sidebar.expander("🔌 DB test (temporary)"):
+    if st.button("Test Supabase"):
+        try:
+            from supabase import create_client
+            sb = create_client(st.secrets["supabase"]["url"],
+                               st.secrets["supabase"]["service_key"])
+            sb.table("buses").upsert({"bus_id": "TEST-001", "operator": "Test Op"}).execute()
+            n = len(sb.table("buses").select("bus_id").execute().data)
+            sb.table("buses").delete().eq("bus_id", "TEST-001").execute()
+            st.success(f"✅ Live — write/read/delete all OK ({n} row(s) seen)")
+        except Exception as e:
+            st.error(f"❌ {e}")
+
+
 # ════════════════════════════════════════════════════════
 # 0. PAGE CONFIG
 # ════════════════════════════════════════════════════════
