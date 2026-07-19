@@ -744,10 +744,12 @@ def render_ai_assistant(data):
             st.session_state.ai_chat.append(("assistant", txt))
             st.rerun()
 
+        _mdl = st.session_state.get("_ai_model_used", "")
         st.markdown('<div class="ai-sub" style="padding-top:6px;">Answers use '
                     'pre-computed aggregate statistics only — raw trip rows never '
-                    'leave the server. Free-tier quota: cached answers are instant '
-                    'and cost nothing.</div>', unsafe_allow_html=True)
+                    'leave the server. Cached answers are instant and cost no quota.'
+                    + (f' · model: {_mdl}' if _mdl else '') + '</div>',
+                    unsafe_allow_html=True)
 
 
 def render_module_shell(module, db_connected=False):

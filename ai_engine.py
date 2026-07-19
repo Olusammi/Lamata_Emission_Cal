@@ -21,11 +21,56 @@ import time
 import requests as _rq
 import streamlit as st
 
-# Flash-Lite has the most generous free-tier limits; switch to
-# "gemini-2.5-flash" if you prefer better prose over higher quota.
-MODEL = "gemini-2.5-flash-lite"
-_FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
-_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+# Model names change under Google's feet (2.0 shut down Jun 2026, 2.5 Flash
+# pulled early). So we DISCOVER what this key can use via ListModels and
+# prefer the cheapest flash-lite/flash options. _PREFERRED is only an
+# ordering hint + offline fallback, never a hard requirement.
+_PREFERRED = [
+    "gemini-3.1-flash-lite", "gemini-flash-lite-latest",
+    "gemini-3.5-flash", "gemini-flash-latest",
+    "gemini-2.5-flash-lite", "gemini-2.5-flash",
+]
+_BASE = "https://generativelanguage.googleapis.com/v1beta"
+_URL = _BASE + "/models/{model}:generateContent"
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _discover_models(_key_fp: str) -> list[str]:
+    """Ask the API which generateContent-capable models this key can use."""
+    key = get_key()
+    models, page_token = [], None
+    try:
+        for _ in range(5):                       # paginate defensively
+            params = {"key": key, "pageSize": 200}
+            if page_token:
+                params["pageToken"] = page_token
+            r = _rq.get(_BASE + "/models", params=params, timeout=15)
+            r.raise_for_status()
+            data = r.json()
+            for m in data.get("models", []):
+                if "generateContent" in m.get("supportedGenerationMethods", []):
+                    models.append(m["name"].split("/")[-1])
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
+    except Exception:
+        return []
+    return models
+
+
+def _candidate_models() -> list[str]:
+    """Preferred models that actually exist for this key, then any other
+    text-capable flash model it has, then the static list as last resort."""
+    avail = _discover_models((get_key() or "none")[:10])
+    if not avail:
+        return _PREFERRED
+    ordered = [m for m in _PREFERRED if m in avail]
+    _skip = ("image", "tts", "audio", "live", "embed", "veo", "imagen", "robotics")
+    extra = sorted(m for m in avail
+                   if "flash" in m and m not in ordered
+                   and not any(x in m for x in _skip))
+    picked = ordered + extra
+    return picked[:5] if picked else _PREFERRED
 
 SYSTEM_STYLE = (
     "You are the built-in analyst of a transit fleet emissions console. "
@@ -70,7 +115,7 @@ def _call(prompt: str, system: str = SYSTEM_STYLE,
                              "maxOutputTokens": max_tokens},
     }
     last_err = ""
-    for model in _FALLBACK_MODELS:
+    for model in _candidate_models():
         for attempt in range(3):
             try:
                 r = _rq.post(_URL.format(model=model),
@@ -88,6 +133,7 @@ def _call(prompt: str, system: str = SYSTEM_STYLE,
                 parts = data["candidates"][0]["content"]["parts"]
                 text = "".join(p.get("text", "") for p in parts).strip()
                 if text:
+                    st.session_state["_ai_model_used"] = model
                     return text, True
                 last_err = "empty response"
             except Exception as e:
@@ -96,7 +142,9 @@ def _call(prompt: str, system: str = SYSTEM_STYLE,
     if last_err == "rate limit":
         return ("The free Gemini quota is momentarily exhausted (rate limit). "
                 "Wait a minute and try again — previous answers stay cached."), False
-    return f"AI request failed ({last_err}). The console itself is unaffected.", False
+    tried = ", ".join(_candidate_models())
+    return (f"AI request failed ({last_err}). Models tried: {tried}. "
+            "The console itself is unaffected."), False
 
 
 # ──────────────────────────────────────────────────────────────
