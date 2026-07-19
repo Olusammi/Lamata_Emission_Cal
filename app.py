@@ -1,7 +1,8 @@
 """
-LAMATA Emissions Portal v3
-Modules: Dashboard · Fleet Intelligence · Pollutant Engine ·
-         Bus Efficiency · Trip Inspector · Deep Search
+Fleet Emissions Console
+Modules: Dashboard · Fleet Intelligence · Pollutant Engine · Bus Efficiency ·
+         Corridor Map · Fleet Health · Forecast · Data Quality · What-If ·
+         Trip Inspector · Formula Explainer · Deep Search
 """
 import streamlit as st
 import pandas as pd
@@ -10,12 +11,19 @@ import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 from emissions_engine import calculate_row, emission_breakdown, compliance_flag
 import db
+import themes as themes_mod
+
+APP_NAME    = "Fleet Emissions Console"
+APP_TAGLINE = "TRANSIT FLEET INTELLIGENCE"
+APP_INITIALS = "FE"
+FLEET_REGION = "Lagos"            # used only for corridor geometry + weather
+FLEET_LAT, FLEET_LON = 6.52, 3.37 # Open-Meteo ambient temperature lookup
 
 # ════════════════════════════════════════════════════════
 # 0. PAGE CONFIG
 # ════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="LAMATA Emissions Portal",
+    page_title=APP_NAME,
     page_icon="ido2tL42k3_1782393500014.png",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -31,7 +39,7 @@ def check_password():
         return True
 
     # Show the login form
-    st.markdown("## 🔐 LAMATA Emissions Portal Login")
+    st.markdown(f"## 🔐 {APP_NAME} — Login")
     with st.form("login_form"):
         username = st.text_input("Username").strip()
         password = st.text_input("Password", type="password")
@@ -63,87 +71,17 @@ if "theme" not in st.session_state:
 _theme = st.session_state.theme
 _is_dark = (_theme == "dark")
 
-# CSS variable sets
-_dark_vars = """
-    --bg-app:      #000C44;
-    --bg-main:     #051449;
-    --bg-card:     #051449;
-    --bg-card2:    #0a1d5c;
-    --border:      #16285f;
-    --border2:     #1e3270;
-    --text-prim:   #f2f5fb;
-    --text-sec:    #8fa0c9;
-    --text-tert:   #5a6ea0;
-    --accent:      #1E73BE;
-    --accent2:     #4a96da;
-    --sidebar-bg:  #000C44;
-    --metric-bg:   #051449;
-    --metric-bdr:  #16285f;
-    --metric-val:  #f2f5fb;
-    --metric-lbl:  #5a6ea0;
-    --banner-bg:   linear-gradient(135deg,#0a1d5c 0%,#000C44 100%);
-    --banner-bdr:  #1e3270;
-    --banner-text: #cdd9f2;
-    --banner-code-bg: rgba(30,115,190,0.18);
-    --banner-code:    #6fb3ec;
-    --tip-bg:      #0a1d5c;
-    --tip-bdr:     #1e3270;
-    --tip-text:    #aac4ec;
-    --tip-strong:  #4a96da;
-    --badge-good-bg:  #0d2e1e; --badge-good-text:  #3ddc84;
-    --badge-mon-bg:   #3a2d0d; --badge-mon-text:   #ffb84d;
-    --badge-over-bg:  #3a1010; --badge-over-text:  #ff6b6b;
-    --filter-bg:   #0a1d5c;   --filter-bdr: #1e3270; --filter-text: #8fa0c9;
-    --autorename-bg:  #3a2d0d; --autorename-bdr: #5c4814; --autorename-text: #ffb84d;
-    --expander-bg: #051449;
-    --table-bdr:   #16285f;
-"""
-_light_vars = """
-    --bg-app:      #f3f6fb;
-    --bg-main:     #ffffff;
-    --bg-card:     #ffffff;
-    --bg-card2:    #eef3fa;
-    --border:      #dbe4f3;
-    --border2:     #c2d2ec;
-    --text-prim:   #000C44;
-    --text-sec:    #3a4f7a;
-    --text-tert:   #8294b8;
-    --accent:      #1E73BE;
-    --accent2:     #155a99;
-    --sidebar-bg:  #000C44;
-    --metric-bg:   #ffffff;
-    --metric-bdr:  #dbe4f3;
-    --metric-val:  #000C44;
-    --metric-lbl:  #6b7da3;
-    --banner-bg:   linear-gradient(135deg,#1E73BE 0%,#000C44 100%);
-    --banner-bdr:  #1E73BE;
-    --banner-text: #eaf1fb;
-    --banner-code-bg: rgba(255,255,255,0.18);
-    --banner-code:    #d9ecfb;
-    --tip-bg:      #eaf3fc;
-    --tip-bdr:     #bcdcf5;
-    --tip-text:    #0d3a63;
-    --tip-strong:  #1E73BE;
-    --badge-good-bg:  #dcfce7; --badge-good-text:  #15803d;
-    --badge-mon-bg:   #fef3c7; --badge-mon-text:   #92400e;
-    --badge-over-bg:  #fee2e2; --badge-over-text:  #b91c1c;
-    --filter-bg:   #eaf3fc;   --filter-bdr: #bcdcf5; --filter-text: #0d3a63;
-    --autorename-bg:  #fff7ed; --autorename-bdr: #fed7aa; --autorename-text: #9a4a0a;
-    --expander-bg: #eef3fa;
-    --table-bdr:   #dbe4f3;
-"""
-
-_css_vars = _dark_vars if _is_dark else _light_vars
+if "theme_preset" not in st.session_state:
+    st.session_state.theme_preset = themes_mod.DEFAULT_THEME
+_preset = st.session_state.theme_preset
+_css_vars = themes_mod.css_vars(_preset, _is_dark)
+_accent_hex = themes_mod.accent(_preset, _is_dark)
 
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+@import url('{themes_mod.FONT_IMPORT}');
 
-:root {{ {_css_vars}
-    --disp: 'Oswald', sans-serif;
-    --mono: 'IBM Plex Mono', monospace;
-    --body: 'Inter', sans-serif;
-}}
+:root {{ {_css_vars} }}
 
 /* ── chrome ── */
 #MainMenu, footer, header {{ visibility: hidden; }}
@@ -419,6 +357,65 @@ def gauge_svg(value, good_t, monitor_t, unit="g CO₂/pkm", max_val=None):
 def chip(label, cls="chip-gray"):
     return f'<span class="chip {cls}">{label}</span>'
 
+
+# ════════════════════════════════════════════════════════
+# CHART SWITCHER — every major chart can be re-rendered as
+# bar / line / area / pie / table with one compact selector
+# ════════════════════════════════════════════════════════
+_CS_ICONS = {"Bar": "📊", "Line": "📈", "Area": "📐", "Pie": "🥧",
+             "Scatter": "✦", "Table": "🔢"}
+
+def chart_switcher(data, x, y, key, kinds=("Bar", "Line", "Area", "Pie", "Table"),
+                   color=None, default="Bar", height=340, y_label=None,
+                   barmode="group", sort_desc=False, title=None):
+    """Render `data` as the user's chosen chart type. Pie is only offered
+    when it makes sense (single value column, no series split)."""
+    y_cols = [y] if isinstance(y, str) else list(y)
+    kinds = list(kinds)
+    if "Pie" in kinds and (len(y_cols) > 1 or color):
+        kinds.remove("Pie")            # a multi-series pie is nonsense
+    idx = kinds.index(default) if default in kinds else 0
+    kind = st.radio("view", [f"{_CS_ICONS.get(k,'')} {k}" for k in kinds],
+                    index=idx, horizontal=True, key=f"cs_{key}",
+                    label_visibility="collapsed").split(" ", 1)[1]
+
+    d = data.copy()
+    if sort_desc and kind in ("Bar", "Pie", "Table"):
+        d = d.sort_values(y_cols[0], ascending=False)
+
+    if kind == "Table":
+        st.dataframe(d, use_container_width=True, hide_index=True)
+        return
+    if kind == "Pie":
+        fig = px.pie(d, names=x, values=y_cols[0], hole=0.45)
+    elif kind == "Line":
+        fig = px.line(d, x=x, y=y_cols if len(y_cols) > 1 else y_cols[0],
+                      color=color, markers=True)
+    elif kind == "Area":
+        fig = px.area(d, x=x, y=y_cols if len(y_cols) > 1 else y_cols[0], color=color)
+    elif kind == "Scatter":
+        fig = px.scatter(d, x=x, y=y_cols[0], color=color)
+    else:
+        fig = px.bar(d, x=x, y=y_cols if len(y_cols) > 1 else y_cols[0],
+                     color=color, barmode=barmode)
+    fig.update_layout(height=height, margin=dict(l=10, r=10, t=34 if title else 24, b=10),
+                      legend=dict(orientation="h"), title=title, title_font_size=13,
+                      yaxis_title=y_label or "", xaxis_title="")
+    st.plotly_chart(fig, use_container_width=True, key=f"csc_{key}_{kind}")
+
+
+def with_table_option(fig, table_df, key, height=None):
+    """For charts that only exist in one sensible form (heatmaps, donuts,
+    bands, maps): offer the chart or its underlying numbers as a table."""
+    mode = st.radio("view", ["📊 Chart", "🔢 Table"], horizontal=True,
+                    key=f"wt_{key}", label_visibility="collapsed")
+    if mode.endswith("Table"):
+        st.dataframe(table_df, use_container_width=True, hide_index=True)
+    else:
+        if height:
+            fig.update_layout(height=height)
+        st.plotly_chart(fig, use_container_width=True, key=f"wtc_{key}")
+
 def kpi_card(label, value, sub="", dot_color=None):
     dot = f'<span class="dot" style="background:{dot_color};"></span>' if dot_color else ""
     return f"""
@@ -432,15 +429,15 @@ def kpi_card(label, value, sub="", dot_color=None):
 # 3. SIDEBAR
 # ════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("""
-    <div style="background:#0d1413;padding:20px 16px 16px;margin:-1rem -1rem 0;border-bottom:1px solid #233029;">
+    st.markdown(f"""
+    <div style="background:var(--sidebar-bg);padding:20px 16px 16px;margin:-1rem -1rem 0;border-bottom:1px solid var(--border);">
         <div style="display:flex;align-items:center;gap:11px;">
-            <div style="width:36px;height:36px;border:2px solid #1E73BE;border-radius:3px;
+            <div style="width:36px;height:36px;border:2px solid {_accent_hex};border-radius:3px;
                         display:flex;align-items:center;justify-content:center;
-                        font-family:'Oswald',sans-serif;font-weight:700;color:#1E73BE;font-size:13px;flex-shrink:0;">LM</div>
+                        font-family:var(--disp);font-weight:700;color:{_accent_hex};font-size:13px;flex-shrink:0;">{APP_INITIALS}</div>
             <div>
-                <div style="font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;color:#eef3f0;letter-spacing:0.02em;">LAMATA</div>
-                <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#5c7268;margin-top:2px;letter-spacing:0.06em;">EMISSIONS PORTAL</div>
+                <div style="font-family:var(--disp);font-size:14px;font-weight:600;color:#eef3f0;letter-spacing:0.02em;">{APP_NAME}</div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--text-tert);margin-top:2px;letter-spacing:0.06em;">{APP_TAGLINE}</div>
             </div>
         </div>
     </div>
@@ -460,12 +457,16 @@ with st.sidebar:
         st.session_state.theme = new_theme
         st.rerun()
 
+    st.selectbox("Theme", list(themes_mod.THEMES.keys()), key="theme_preset",
+                 label_visibility="collapsed",
+                 help="Colour & font preset — each has matched dark and light variants.")
+
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 
     selected_module = option_menu(
         menu_title=None,
-        options=["Dashboard","Fleet Intelligence","Pollutant Engine","Bus Efficiency","Corridor Map","Fleet Health","Forecast","Trip Inspector","Formula Explainer","Deep Search"],
-        icons=["speedometer2","diagram-3","cloud-haze2","bus-front","map","heart-pulse","graph-up-arrow","search-heart","calculator","table"],
+        options=["Dashboard","Fleet Intelligence","Pollutant Engine","Bus Efficiency","Corridor Map","Fleet Health","Forecast","Data Quality","What-If","Trip Inspector","Formula Explainer","Deep Search"],
+        icons=["speedometer2","diagram-3","cloud-haze2","bus-front","map","heart-pulse","graph-up-arrow","clipboard2-check","sliders","search-heart","calculator","table"],
         default_index=0,
         styles={
             "container":         {"padding":"0!important","background-color":"transparent"},
@@ -529,12 +530,37 @@ with st.sidebar:
     )
     basis = "passenger" if basis_choice == "Per passenger" else "vehicle"
     st.session_state.eff_unit = "g/pkm" if basis == "passenger" else "g/km"
-    ambient_c = st.slider(
-        "Ambient temp (°C)", 15, 40, 28,
-        help="Feeds the cold-start correction — a cold engine over-emits, "
-             "but the effect fades as ambient temperature rises and "
-             "disappears at 30 °C. Lagos average ≈ 28 °C.",
-    )
+    use_live_temp = st.checkbox("🌡 Live ambient temp (Open-Meteo)", value=False,
+        help="Fetches the current temperature for the fleet region from the free "
+             "Open-Meteo API (no key needed) and feeds it to the cold-start "
+             "correction. Untick to set it manually.")
+
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def _fetch_live_temp(lat, lon):
+        import requests as _rq
+        try:
+            r = _rq.get("https://api.open-meteo.com/v1/forecast",
+                        params={"latitude": lat, "longitude": lon,
+                                "current": "temperature_2m"}, timeout=6)
+            return float(r.json()["current"]["temperature_2m"])
+        except Exception:
+            return None
+
+    _live_t = _fetch_live_temp(FLEET_LAT, FLEET_LON) if use_live_temp else None
+    if _live_t is not None:
+        ambient_c = round(_live_t, 1)
+        st.markdown(f'<div style="font-family:var(--mono);font-size:10.5px;color:var(--text-tert);'
+                    f'padding:0 2px 6px;">● live: {ambient_c} °C ({FLEET_REGION})</div>',
+                    unsafe_allow_html=True)
+    else:
+        if use_live_temp:
+            st.caption("Live temp unavailable — using the slider.")
+        ambient_c = st.slider(
+            "Ambient temp (°C)", 15, 40, 28,
+            help="Feeds the cold-start correction — a cold engine over-emits, "
+                 "but the effect fades as ambient temperature rises and "
+                 "disappears at 30 °C.",
+        )
 
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
         text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Data Quality</div>""",
@@ -601,6 +627,10 @@ MODULE_INTRO = {
                           "Interactive Lagos BRT corridor map, coloured by emission intensity, will appear here."),
     "Fleet Health":      ("🩺 Fleet Health",
                           "ML anomaly detection: buses drifting from their own normal or their peer group — an early-warning list for maintenance."),
+    "Data Quality":      ("🧪 Data Quality",
+                          "Automated validation of the loaded manifest — impossible distances, speed outliers, over-capacity ridership, duplicates and unmapped values, each with severity."),
+    "What-If":           ("🎛 What-If Simulator",
+                          "Fleet planning scenarios — fuel conversions, Euro upgrades, A/C policy, speed improvements — recomputed through the real emissions engine."),
     "Forecast":          ("📈 Forecast",
                           "Projected daily fleet CO₂ and ridership with confidence bands, plus per-bus compliance risk scores."),
     "Trip Inspector":    ("🔍 Trip Inspector",
@@ -614,7 +644,7 @@ MODULE_INTRO = {
 def render_module_shell(module, db_connected=False):
     """Full interface, no data yet: draw the selected module's frame
     with a compact 'awaiting data' panel where its charts will be."""
-    title, desc = MODULE_INTRO.get(module, ("LAMATA Emissions Portal", ""))
+    title, desc = MODULE_INTRO.get(module, (APP_NAME, ""))
     hint = ("The database is connected but empty — your first upload seeds it, "
             "and every session after that loads automatically."
             if db_connected else
@@ -1048,6 +1078,150 @@ if active_filters:
 
 fdf = apply_filters(df)  # filtered dataframe used by all modules
 
+
+# ════════════════════════════════════════════════════════
+# CORRIDOR MAP — reusable renderer (full module + dashboard mini)
+# Geometry is schematic; region-specific but swappable. When per-route
+# lat/lon columns are added to the manifest, exact plotting takes over.
+# ════════════════════════════════════════════════════════
+CORRIDORS = {
+    "Abule Egba – Oshodi – TBS": {
+        "path": [[3.2938, 6.6480], [3.3050, 6.6100], [3.3480, 6.5560],
+                 [3.3690, 6.5310], [3.4053, 6.4433]],
+        "keywords": ["abule", "sango", "abesan", "iyana-ipaja", "iyana ipaja", "dopemu", "meiran"],
+    },
+    "Ikorodu – TBS": {
+        "path": [[3.5116, 6.6194], [3.4400, 6.6050], [3.3900, 6.5960],
+                 [3.3860, 6.5870], [3.3690, 6.5310], [3.4053, 6.4433]],
+        "keywords": ["ikorodu", "elepe", "igbogbo", "odogunyan", "odongunyan",
+                     "agric", "isawo", "ogolonto", "fadeyi"],
+    },
+    "Ikeja Axis": {
+        "path": [[3.2635, 6.6155], [3.3376, 6.6018], [3.3565, 6.6187],
+                 [3.3200, 6.6250], [3.3480, 6.5560]],
+        "keywords": ["ikeja", "agege", "ayobo", "egbeda", "ikotun", "igando",
+                     "baruwa", "alausa", "allen", "ijaiye", "iju", "kola"],
+    },
+    "Ajah – CMS / Marina": {
+        "path": [[3.5670, 6.4667], [3.4730, 6.4410], [3.4270, 6.4290],
+                 [3.4059, 6.4488], [3.3890, 6.4500]],
+        "keywords": ["ajah", "marina", "eko hotel", "cms", "lekki", "falomo",
+                     "tinubu", "adeola"],
+    },
+    "Oshodi / Berger – Inner City": {
+        "path": [[3.3776, 6.6413], [3.3860, 6.5870], [3.3792, 6.5095],
+                 [3.3480, 6.5560], [3.2989, 6.4666]],
+        "keywords": ["berger", "ojota", "yaba", "unilag", "oshodi", "cele",
+                     "mile 2", "okokomaiko", "obalende", "ogba", "olowora",
+                     "maryland", "magodo", "ketu", "dalemo", "joke-ayo"],
+    },
+}
+
+def match_corridor(route_name):
+    r = str(route_name).lower()
+    for cname, cdef in CORRIDORS.items():
+        if any(k in r for k in cdef["keywords"]):
+            return cname
+    return "Oshodi / Berger – Inner City"     # catch-all corridor
+
+_MAP_STYLES = {
+    "Dark":    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+    "Light":   "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+    "Voyager": "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+}
+
+def corridor_aggregate(data, pollutant):
+    mdf = data.copy()
+    mdf["Corridor"] = mdf["Route_Name"].apply(match_corridor)
+    kg_col, eff_col = f"{pollutant}_kg", f"{pollutant}_g_pkm"
+    return mdf.groupby("Corridor").agg(
+        Total_kg=(kg_col, "sum") if kg_col in mdf.columns else ("Bus_ID", "count"),
+        Eff=(eff_col, "mean") if eff_col in mdf.columns else ("Bus_ID", "count"),
+        Trips=("Bus_ID", "count"),
+        Buses=("Bus_ID", "nunique"),
+        Pax=("Ridership", "sum"),
+    ).reset_index()
+
+def render_corridor_map(data, pollutant="CO2", metric="total", height=560,
+                        theme="Dark", key="cmap"):
+    """Draw the interactive corridor map. metric: 'total' | 'eff'."""
+    import pydeck as pdk
+    agg = corridor_aggregate(data, pollutant)
+    val_col = "Total_kg" if metric == "total" else "Eff"
+    vmax = max(float(agg[val_col].max() or 1), 1e-9)
+
+    def _color(v):
+        t = min(float(v or 0) / vmax, 1.0)
+        if t < 0.5:
+            f = t / 0.5
+            return [int(62+f*(255-62)), int(242-f*(242-194)), int(160-f*(160-75)), 210]
+        f = (t-0.5)/0.5
+        return [255, int(194-f*(194-99)), int(75+f*(99-75)), 220]
+
+    rows = []
+    for _, r in agg.iterrows():
+        cdef = CORRIDORS[r["Corridor"]]
+        rows.append({
+            "name": r["Corridor"], "path": cdef["path"],
+            "color": _color(r[val_col]),
+            "width": 60 + 240 * min(float(r[val_col] or 0)/vmax, 1.0),
+            "total": f"{r['Total_kg']:,.0f} kg",
+            "eff": f"{r['Eff']:.1f} {st.session_state.get('eff_unit','g/pkm')}",
+            "trips": int(r["Trips"]), "buses": int(r["Buses"]),
+            "pax": f"{int(r['Pax']):,}",
+        })
+    terminals = [{"name": n, "pos": c["path"][i]}
+                 for n, c in CORRIDORS.items() for i in (0, -1)]
+    deck = pdk.Deck(
+        layers=[
+            pdk.Layer("PathLayer", rows, get_path="path", get_color="color",
+                      get_width="width", width_min_pixels=4, pickable=True,
+                      cap_rounded=True, joint_rounded=True),
+            pdk.Layer("ScatterplotLayer", terminals, get_position="pos",
+                      get_radius=350, get_fill_color=[238, 243, 240, 200],
+                      get_line_color=[30, 115, 190], line_width_min_pixels=2, stroked=True),
+        ],
+        initial_view_state=pdk.ViewState(latitude=6.545, longitude=3.38,
+                                         zoom=10.4, pitch=35),
+        map_style=_MAP_STYLES[theme],
+        tooltip={"html": "<b>{name}</b><br/>"
+                         f"{pollutant}: " + "{total} · {eff}<br/>"
+                         "Trips: {trips} · Buses: {buses} · Passengers: {pax}"},
+    )
+    st.pydeck_chart(deck, height=height)
+    return agg
+
+def render_corridor_module():
+    st.markdown("## 🗺 Corridor Map")
+    st.markdown(
+        '<div class="banner">Schematic transit corridors coloured by emission intensity. '
+        'Routes are matched to corridors by name keywords for now — when per-route '
+        'latitude/longitude columns are added to the manifest, this map will plot '
+        'exact route geometry automatically.</div>', unsafe_allow_html=True)
+    mc1, mc2, mc3 = st.columns(3)
+    with mc1:
+        map_pol = st.selectbox("Pollutant",
+            [p for p in ["CO2", "NOx", "PM"] if p in target_pollutants] or ["CO2"])
+    with mc2:
+        map_metric = st.selectbox("Colour by",
+            ["Total emissions (kg)", f"Efficiency ({st.session_state.eff_unit})"])
+    with mc3:
+        map_theme = st.selectbox("Base map", ["Dark", "Light", "Voyager"])
+    agg = render_corridor_map(fdf, map_pol,
+                              "total" if map_metric.startswith("Total") else "eff",
+                              height=560, theme=map_theme, key="cmap_full")
+    st.markdown('<div class="sec-label">Corridor totals — switch the view if the map is not what you need</div>',
+                unsafe_allow_html=True)
+    board = agg.rename(columns={"Total_kg": f"{map_pol} kg",
+                                "Eff": st.session_state.eff_unit,
+                                "Trips": "Rows", "Pax": "Passengers"}).round(1)
+    chart_switcher(board, x="Corridor", y=f"{map_pol} kg", key="cmap_board",
+                   kinds=("Bar", "Pie", "Table"), default="Table",
+                   sort_desc=True, height=320)
+    st.caption("Corridor geometry is schematic. Add Route_Lat / Route_Lon columns "
+               "to the manifest to unlock exact per-route plotting.")
+
+
 # ── Basis banner — makes clear which unit every efficiency figure uses ──
 _basis_txt = ("passenger-km (g/pkm) — how efficiently people are moved"
               if basis == "passenger" else
@@ -1086,19 +1260,6 @@ if selected_module == "Dashboard":
     k4.metric("Fleet efficiency",  fmt_gkm(avg_eff)  if "CO2" in target_pollutants else "—")
     k5.metric("Over-limit trips",  str(over_ct), delta=f"{over_ct} need review", delta_color="inverse")
     k6.metric("A/C CO₂ uplift",    fmt_kg(ac_uplift), delta=f"{ac_trips} A/C trips")
-
-    # ── Revenue carbon intensity — uses the fare-revenue column that ships
-    # with the monthly ridership export (Revenue_Naira) ──
-    if "Revenue_Naira" in fdf.columns and fdf["Revenue_Naira"].sum() > 0:
-        total_rev = fdf["Revenue_Naira"].sum()
-        kg_per_1000 = (co2_total / (total_rev / 1000.0)) if total_rev else 0
-        rev_per_t   = (total_rev / (co2_total / 1000.0)) if co2_total else 0
-        r1, r2, r3, r4 = st.columns(4)
-        r1.metric("Fare revenue",          f"₦{total_rev:,.0f}")
-        r2.metric("CO₂ per ₦1,000 earned", f"{kg_per_1000:.2f} kg" if "CO2" in target_pollutants else "—",
-                  help="Carbon intensity of revenue — lower is better. Falls when buses run fuller or cleaner.")
-        r3.metric("Revenue per tonne CO₂", f"₦{rev_per_t:,.0f}" if co2_total else "—")
-        r4.metric("Revenue per passenger", f"₦{total_rev/max(fdf['Ridership'].sum(),1):,.0f}")
 
     st.markdown('<div class="sec-label">Filter by attribute — dropdowns apply across all modules</div>', unsafe_allow_html=True)
 
@@ -1168,64 +1329,130 @@ if selected_module == "Dashboard":
     col1, col2 = st.columns(2)
     with col1:
         if "CO2" in target_pollutants:
-            op_co2 = fdf.groupby("Operator")["CO2_kg"].sum().reset_index()
-            fig = px.pie(op_co2, values="CO2_kg", names="Operator",
-                         title="CO₂ share by operator", hole=0.52,
-                         color_discrete_sequence=PALETTE)
-            fig.update_traces(textposition="outside", textinfo="percent+label", textfont_size=11)
-            fig.update_layout(**PLY_BASE, showlegend=False, title_font_size=13)
-            st.plotly_chart(fig, use_container_width=True)
+            op_co2 = fdf.groupby("Operator")["CO2_kg"].sum().reset_index()\
+                        .sort_values("CO2_kg", ascending=False).head(12)
+            chart_switcher(op_co2.round(1), x="Operator", y="CO2_kg", key="dash_op",
+                           kinds=("Pie", "Bar", "Table"), default="Pie",
+                           title="CO₂ share by operator (top 12)",
+                           y_label="kg CO₂", sort_desc=True, height=360)
 
     with col2:
         # Euro class CO2 comparison
         if "CO2" in target_pollutants and "Euro_Standard" in fdf.columns:
-            eu_co2 = fdf.groupby("Euro_Standard")["CO2_g_pkm"].mean().reset_index().sort_values("CO2_g_pkm", ascending=False)
-            eu_co2.columns = ["Euro Standard","Avg CO₂ g/pkm"]
-            fig2 = px.bar(eu_co2, x="Euro Standard", y="Avg CO₂ g/pkm",
-                          title="Average CO₂ intensity by Euro class",
-                          color="Avg CO₂ g/pkm",
-                          color_continuous_scale=["#22c55e","#eab308","#ef4444"],
-                          text_auto=".1f")
-            fig2.update_layout(**PLY_BASE, title_font_size=13, showlegend=False,
-                               coloraxis_showscale=False, xaxis_title="", yaxis_title="g CO₂/pkm")
-            fig2.update_traces(textfont_size=11, cliponaxis=False)
-            st.plotly_chart(fig2, use_container_width=True)
+            eu_co2 = fdf.groupby("Euro_Standard")["CO2_g_pkm"].mean().reset_index()
+            eu_co2.columns = ["Euro Standard", "Avg intensity"]
+            chart_switcher(eu_co2.round(1), x="Euro Standard", y="Avg intensity",
+                           key="dash_euro", kinds=("Bar", "Line", "Table"),
+                           title="Average CO₂ intensity by Euro class",
+                           y_label=st.session_state.eff_unit, sort_desc=True, height=360)
 
     # Daily CO2 trend
     if "CO2" in target_pollutants:
         daily = fdf.groupby("Date")["CO2_kg"].sum().reset_index()
         daily["Date"] = daily["Date"].astype(str)
-        fig3 = px.area(daily, x="Date", y="CO2_kg",
-                       title="Daily CO₂ total",
-                       color_discrete_sequence=["#1E73BE"])
-        fig3.update_traces(fillcolor="rgba(26,115,232,0.10)", line_width=2.5)
-        fig3.update_layout(**PLY_BASE, title_font_size=13, xaxis_title="", yaxis_title="kg CO₂")
-        st.plotly_chart(fig3, use_container_width=True)
+        chart_switcher(daily.round(1), x="Date", y="CO2_kg", key="dash_daily",
+                       kinds=("Area", "Line", "Bar", "Table"), default="Area",
+                       title="Daily CO₂ total", y_label="kg CO₂", height=340)
 
     # Compliance + age heatmap side-by-side
     col3, col4 = st.columns(2)
     with col3:
         comp_ct = fdf["Compliance"].value_counts().reset_index()
-        comp_ct.columns=["Status","Trips"]
-        cmap = {"Good":"#22c55e","Monitor":"#eab308","Over Limit":"#ef4444","N/A":"#94a3b8"}
-        fig4 = px.bar(comp_ct, x="Status", y="Trips", color="Status",
-                      title="Trips by compliance status",
-                      color_discrete_map=cmap, text_auto=True)
-        fig4.update_layout(**PLY_BASE, showlegend=False, title_font_size=13,
-                           xaxis_title="", yaxis_title="Trips")
-        st.plotly_chart(fig4, use_container_width=True)
+        comp_ct.columns = ["Status", "Trips"]
+        chart_switcher(comp_ct, x="Status", y="Trips", key="dash_comp",
+                       kinds=("Bar", "Pie", "Table"), default="Bar",
+                       title="Trips by compliance status", y_label="Trips", height=340)
     with col4:
         if "Vehicle_Age_years" in fdf.columns and "CO2" in target_pollutants:
-            age_eff = fdf[fdf["Revenue_Trip"].astype(str).str.lower().isin(["true","1"])]\
-                .groupby("Vehicle_Age_years")["CO2_g_pkm"].mean().reset_index()
-            fig5 = px.bar(age_eff, x="Vehicle_Age_years", y="CO2_g_pkm",
-                          title="CO₂ intensity vs vehicle age",
-                          color="CO2_g_pkm",
-                          color_continuous_scale=["#22c55e","#ef4444"], text_auto=".1f")
-            fig5.update_layout(**PLY_BASE, title_font_size=13, showlegend=False,
-                               coloraxis_showscale=False,
-                               xaxis_title="Vehicle age (years)", yaxis_title="g CO₂/pkm")
-            st.plotly_chart(fig5, use_container_width=True)
+            age_eff = fdf.groupby("Vehicle_Age_years")["CO2_g_pkm"].mean().reset_index()
+            age_eff.columns = ["Vehicle age (yrs)", "Avg intensity"]
+            chart_switcher(age_eff.round(1), x="Vehicle age (yrs)", y="Avg intensity",
+                           key="dash_age", kinds=("Bar", "Line", "Area", "Table"),
+                           title="CO₂ intensity vs vehicle age",
+                           y_label=st.session_state.eff_unit, height=340)
+
+    # ── Corridor overview — compact embedded map (full module for detail) ──
+    if "CO2" in target_pollutants:
+        with st.expander("🗺 Corridor overview — CO₂ by corridor", expanded=True):
+            render_corridor_map(fdf, "CO2", "total", height=380,
+                                theme="Dark" if _is_dark else "Light", key="cmap_mini")
+            st.caption("Compact view · open the Corridor Map module for pollutant, "
+                       "metric and base-map controls plus the corridor league.")
+
+    # ── Month-over-month — appears automatically once 2+ months exist ──
+    _mom = fdf.copy()
+    _mom["Month"] = pd.to_datetime(_mom["Date"], errors="coerce").dt.to_period("M").astype(str)
+    _months = sorted(m for m in _mom["Month"].dropna().unique() if m != "NaT")
+    if len(_months) >= 2 and "CO2" in target_pollutants:
+        st.markdown('<div class="sec-label">Month-over-month</div>', unsafe_allow_html=True)
+        mom = _mom.groupby("Month").agg(
+            CO2_t=("CO2_kg", lambda x: x.sum() / 1000.0),
+            Intensity=("CO2_g_pkm", "mean"),
+            Trips=("Bus_ID", "count"),
+            Pax=("Ridership", "sum")).reset_index().round(2)
+        mom["Δ CO₂ %"] = (mom["CO2_t"].pct_change() * 100).round(1)
+        mcol1, mcol2 = st.columns([3, 2])
+        with mcol1:
+            chart_switcher(mom, x="Month", y="CO2_t", key="dash_mom",
+                           kinds=("Bar", "Line", "Table"), default="Bar",
+                           title="Total CO₂ by month (tonnes)", y_label="t CO₂", height=320)
+        with mcol2:
+            latest, prev = mom.iloc[-1], mom.iloc[-2]
+            st.metric(f"CO₂ · {latest['Month']}", f"{latest['CO2_t']:,.1f} t",
+                      delta=f"{latest['Δ CO₂ %']:+.1f}% vs {prev['Month']}",
+                      delta_color="inverse")
+            st.metric("Avg intensity", f"{latest['Intensity']:.1f} {st.session_state.eff_unit}",
+                      delta=f"{latest['Intensity'] - prev['Intensity']:+.1f}",
+                      delta_color="inverse")
+            st.metric("Passengers", f"{int(latest['Pax']):,}",
+                      delta=f"{int(latest['Pax'] - prev['Pax']):+,}")
+
+    # ── One-click summary report (HTML — print to PDF from the browser) ──
+    st.markdown('<div class="sec-label">Report</div>', unsafe_allow_html=True)
+    rep1, rep2 = st.columns([1, 3])
+    with rep1:
+        if st.button("📄 Build summary report", use_container_width=True):
+            top = (fdf.groupby(["Bus_ID", "Operator"])["CO2_kg"].sum()
+                      .reset_index().sort_values("CO2_kg", ascending=False).head(10))
+            comp = fdf["Compliance"].value_counts()
+            _rows = "".join(
+                f"<tr><td>{r.Bus_ID}</td><td>{r.Operator}</td>"
+                f"<td style='text-align:right'>{r.CO2_kg:,.0f}</td></tr>"
+                for r in top.itertuples())
+            _dates = f"{fdf['Date'].astype(str).min()} → {fdf['Date'].astype(str).max()}"
+            html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>{APP_NAME} — Summary</title><style>
+body{{font-family:Arial,Helvetica,sans-serif;color:#16211c;margin:36px;}}
+h1{{font-size:22px;border-bottom:3px solid #0E8F5F;padding-bottom:8px;}}
+h2{{font-size:15px;margin-top:26px;color:#0E8F5F;}}
+table{{border-collapse:collapse;width:100%;font-size:13px;}}
+td,th{{border:1px solid #d6e5dc;padding:6px 10px;text-align:left;}}
+th{{background:#e8f1ec;}} .kpi{{display:inline-block;margin:8px 22px 8px 0;}}
+.kpi b{{font-size:20px;display:block;}} .kpi span{{font-size:11px;color:#667;}}
+</style></head><body>
+<h1>{APP_NAME} — Fleet Summary</h1>
+<p>Period: {_dates} · Methodology: {methodology} · Basis: {st.session_state.eff_unit}
+ · Ambient: {ambient_c} °C · Engine v4</p>
+<h2>Key figures</h2>
+<div class='kpi'><b>{fdf['CO2_kg'].sum()/1000:,.1f} t</b><span>Total CO₂</span></div>
+<div class='kpi'><b>{fdf['CO2_g_pkm'].mean():,.1f}</b><span>Avg {st.session_state.eff_unit}</span></div>
+<div class='kpi'><b>{fdf['Bus_ID'].nunique():,}</b><span>Buses</span></div>
+<div class='kpi'><b>{len(fdf):,}</b><span>Trip rows</span></div>
+<div class='kpi'><b>{int(fdf['Ridership'].sum()):,}</b><span>Passengers</span></div>
+<h2>Compliance</h2>
+<p>Good: {int(comp.get('Good',0)):,} · Monitor: {int(comp.get('Monitor',0)):,}
+ · Over Limit: {int(comp.get('Over Limit',0)):,}</p>
+<h2>Top 10 CO₂ emitters</h2>
+<table><tr><th>Bus</th><th>Operator</th><th>kg CO₂</th></tr>{_rows}</table>
+<p style='margin-top:30px;font-size:11px;color:#889;'>Generated by {APP_NAME}.
+ Open in a browser and print to PDF for distribution.</p>
+</body></html>"""
+            st.session_state["_report_html"] = html
+    with rep2:
+        if st.session_state.get("_report_html"):
+            st.download_button("⬇ Download report (HTML)",
+                               data=st.session_state["_report_html"].encode(),
+                               file_name="fleet_summary_report.html", mime="text/html")
 
 # ════════════════════════════════════════════════════════
 # MODULE 2 — FLEET INTELLIGENCE
@@ -1370,23 +1597,23 @@ elif selected_module == "Pollutant Engine":
 
     c1, c2 = st.columns(2)
     with c1:
-        op_pol = fdf.groupby("Operator")[agg_cols].sum().reset_index()\
+        _top_ops = fdf.groupby("Operator")["CO2_kg"].sum().nlargest(10).index
+        op_pol = fdf[fdf["Operator"].isin(_top_ops)]\
+            .groupby("Operator")[agg_cols].sum().reset_index()\
             .melt(id_vars="Operator", var_name="Pollutant", value_name="kg")
         op_pol["Pollutant"] = op_pol["Pollutant"].str.replace("_kg","")
-        fig = px.bar(op_pol, x="Operator", y="kg", color="Pollutant", barmode="group",
-                     title="Pollutant volume by operator",
-                     color_discrete_sequence=PALETTE[:len(target_pollutants)])
-        fig.update_layout(**PLY_BASE, title_font_size=13, xaxis_title="", yaxis_title="kg")
-        st.plotly_chart(fig, use_container_width=True)
+        chart_switcher(op_pol.round(1), x="Operator", y="kg", color="Pollutant",
+                       key="pe_op", kinds=("Bar", "Line", "Table"),
+                       title="Pollutant volume by operator (top 10)",
+                       y_label="kg", height=360)
     with c2:
         fuel_pol = fdf.groupby("Fuel_Type")[agg_cols].sum().reset_index()\
             .melt(id_vars="Fuel_Type", var_name="Pollutant", value_name="kg")
         fuel_pol["Pollutant"] = fuel_pol["Pollutant"].str.replace("_kg","")
-        fig2 = px.bar(fuel_pol, x="Fuel_Type", y="kg", color="Pollutant", barmode="stack",
-                      title="Pollutant volume by fuel type (stacked)",
-                      color_discrete_sequence=PALETTE[:len(target_pollutants)])
-        fig2.update_layout(**PLY_BASE, title_font_size=13, xaxis_title="", yaxis_title="kg")
-        st.plotly_chart(fig2, use_container_width=True)
+        chart_switcher(fuel_pol.round(1), x="Fuel_Type", y="kg", color="Pollutant",
+                       key="pe_fuel", kinds=("Bar", "Area", "Table"),
+                       title="Pollutant volume by fuel type", barmode="stack",
+                       y_label="kg", height=360)
 
     # Speed vs NOx scatter
     if "NOx" in target_pollutants and "NOx_g_pkm" in fdf.columns:
@@ -1406,9 +1633,9 @@ elif selected_module == "Pollutant Engine":
         heat_pivot = heat.pivot(index="Euro_Standard", columns="Fuel_Type", values="CO2_g_pkm").fillna(0)
         fig4 = px.imshow(heat_pivot, text_auto=".1f",
                          color_continuous_scale=["#22c55e","#fbbf24","#ef4444"],
-                         title="Mean CO₂ g/pkm — Euro class × fuel type")
+                         title=f"Mean CO₂ {st.session_state.eff_unit} — Euro class × fuel type")
         fig4.update_layout(**PLY_BASE, title_font_size=13)
-        st.plotly_chart(fig4, use_container_width=True)
+        with_table_option(fig4, heat_pivot.reset_index().round(1), key="pe_heat")
 
 # ════════════════════════════════════════════════════════
 # MODULE 4 — BUS EFFICIENCY
@@ -1416,10 +1643,12 @@ elif selected_module == "Pollutant Engine":
 elif selected_module == "Bus Efficiency":
     st.markdown("## 🚌 Bus Efficiency")
     st.markdown(
-        '<div class="banner">Efficiency = CO₂ grams per passenger-kilometre (g CO₂/pkm). '
-        'Lower is better. Compliance thresholds: High Capacity ≤30 Good / ≤55 Monitor; '
-        'Midi ≤45 / ≤75; Mini ≤60 / ≤95. '
-        'Scores reflect Euro class, age, A/C, and engine model corrections.</div>',
+        (f'<div class="banner">Efficiency = CO₂ grams per <strong>{"passenger-km" if basis=="passenger" else "vehicle-km"}</strong> '
+         f'({st.session_state.eff_unit}) — lower is better. Compliance thresholds '
+         + ('(per pkm): High Capacity ≤30 Good / ≤55 Monitor; Midi ≤45 / ≤75; Mini ≤60 / ≤95. '
+            if basis == "passenger" else
+            '(per vehicle-km): High Capacity ≤1500 Good / ≤2100 Monitor; Midi ≤1000 / ≤1400; Mini ≤500 / ≤750. ')
+         + 'Scores reflect Euro class, age, A/C, and engine model corrections.</div>'),
         unsafe_allow_html=True)
 
     if "CO2" not in target_pollutants:
@@ -1485,7 +1714,7 @@ elif selected_module == "Bus Efficiency":
         Age=("Vehicle_Age_years","first") if "Vehicle_Age_years" in rev.columns else ("CO2_kg","count"),
     ).reset_index().sort_values("CO2_g_pkm")
     bus_rank["Compliance"] = bus_rank.apply(
-        lambda r: compliance_flag(r["CO2_g_pkm"], r["Category"]), axis=1)
+        lambda r: compliance_flag(r["CO2_g_pkm"], r["Category"], basis), axis=1)
 
     st.dataframe(bus_rank, use_container_width=True, hide_index=True,
         column_config={
@@ -1510,132 +1739,7 @@ elif selected_module == "Bus Efficiency":
 # MODULE 5 — TRIP INSPECTOR
 # ════════════════════════════════════════════════════════
 elif selected_module == "Corridor Map":
-    st.markdown("## 🗺 Corridor Map")
-    st.markdown(
-        '<div class="banner">Schematic Lagos BRT corridors coloured by emission intensity. '
-        'Routes are matched to corridors by name keywords for now — when per-route '
-        'latitude/longitude columns are added to the manifest, this map will plot '
-        'exact route geometry automatically.</div>', unsafe_allow_html=True)
-
-    import pydeck as pdk
-
-    # ── Schematic corridor geometry (approximate waypoints, lon/lat) ──
-    CORRIDORS = {
-        "Abule Egba – Oshodi – TBS": {
-            "path": [[3.2938, 6.6480], [3.3050, 6.6100], [3.3480, 6.5560],
-                     [3.3690, 6.5310], [3.4053, 6.4433]],
-            "keywords": ["abule", "sango", "abesan", "iyana-ipaja", "iyana ipaja", "dopemu", "meiran"],
-        },
-        "Ikorodu – TBS": {
-            "path": [[3.5116, 6.6194], [3.4400, 6.6050], [3.3900, 6.5960],
-                     [3.3860, 6.5870], [3.3690, 6.5310], [3.4053, 6.4433]],
-            "keywords": ["ikorodu", "elepe", "igbogbo", "odogunyan", "odongunyan",
-                         "agric", "isawo", "ogolonto", "fadeyi"],
-        },
-        "Ikeja Axis": {
-            "path": [[3.2635, 6.6155], [3.3376, 6.6018], [3.3565, 6.6187],
-                     [3.3200, 6.6250], [3.3480, 6.5560]],
-            "keywords": ["ikeja", "agege", "ayobo", "egbeda", "ikotun", "igando",
-                         "baruwa", "alausa", "allen", "ijaiye", "iju", "meiran", "kola"],
-        },
-        "Ajah – CMS / Marina": {
-            "path": [[3.5670, 6.4667], [3.4730, 6.4410], [3.4270, 6.4290],
-                     [3.4059, 6.4488], [3.3890, 6.4500]],
-            "keywords": ["ajah", "marina", "eko hotel", "cms", "lekki", "falomo",
-                         "tinubu", "adeola"],
-        },
-        "Oshodi / Berger – Inner City": {
-            "path": [[3.3776, 6.6413], [3.3860, 6.5870], [3.3792, 6.5095],
-                     [3.3480, 6.5560], [3.2989, 6.4666]],
-            "keywords": ["berger", "ojota", "yaba", "unilag", "oshodi", "cele",
-                         "mile 2", "okokomaiko", "obalende", "ogba", "olowora",
-                         "maryland", "magodo", "ketu", "dalemo", "joke-ayo"],
-        },
-    }
-
-    def match_corridor(route_name):
-        r = str(route_name).lower()
-        for cname, cdef in CORRIDORS.items():
-            if any(k in r for k in cdef["keywords"]):
-                return cname
-        return "Oshodi / Berger – Inner City"   # catch-all corridor
-
-    mdf = fdf.copy()
-    mdf["Corridor"] = mdf["Route_Name"].apply(match_corridor)
-
-    mc1, mc2, mc3 = st.columns(3)
-    with mc1:
-        map_pol = st.selectbox("Pollutant", [p for p in ["CO2","NOx","PM"] if p in target_pollutants] or ["CO2"])
-    with mc2:
-        map_metric = st.selectbox("Colour by", ["Total emissions (kg)", f"Efficiency ({st.session_state.eff_unit})"])
-    with mc3:
-        map_theme = st.selectbox("Base map", ["Dark", "Light", "Voyager"])
-    _styles = {
-        "Dark":    "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-        "Light":   "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-        "Voyager": "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
-    }
-
-    kg_col, eff_col = f"{map_pol}_kg", f"{map_pol}_g_pkm"
-    agg = mdf.groupby("Corridor").agg(
-        Total_kg=(kg_col, "sum") if kg_col in mdf.columns else ("Bus_ID", "count"),
-        Eff=(eff_col, "mean") if eff_col in mdf.columns else ("Bus_ID", "count"),
-        Trips=("Bus_ID", "count"),
-        Buses=("Bus_ID", "nunique"),
-        Pax=("Ridership", "sum"),
-    ).reset_index()
-
-    val_col = "Total_kg" if map_metric.startswith("Total") else "Eff"
-    vmax = max(float(agg[val_col].max() or 1), 1e-9)
-
-    def _color(v):
-        """Green → amber → red ramp on the chosen metric."""
-        t = min(float(v or 0) / vmax, 1.0)
-        if t < 0.5:   # green → amber
-            f = t / 0.5
-            return [int(62+f*(255-62)), int(242-f*(242-194)), int(160-f*(160-75)), 210]
-        f = (t-0.5)/0.5   # amber → red
-        return [255, int(194-f*(194-99)), int(75+f*(99-75)), 220]
-
-    rows = []
-    for _, r in agg.iterrows():
-        cdef = CORRIDORS[r["Corridor"]]
-        rows.append({
-            "name": r["Corridor"], "path": cdef["path"],
-            "color": _color(r[val_col]),
-            "width": 60 + 240 * min(float(r[val_col] or 0)/vmax, 1.0),
-            "total": f"{r['Total_kg']:,.0f} kg", "eff": f"{r['Eff']:.1f} {st.session_state.eff_unit}",
-            "trips": int(r["Trips"]), "buses": int(r["Buses"]), "pax": f"{int(r['Pax']):,}",
-        })
-
-    terminals = [{"name": n, "pos": c["path"][i]} for n, c in CORRIDORS.items() for i in (0, -1)]
-
-    deck = pdk.Deck(
-        layers=[
-            pdk.Layer("PathLayer", rows, get_path="path", get_color="color",
-                      get_width="width", width_min_pixels=4, pickable=True,
-                      cap_rounded=True, joint_rounded=True),
-            pdk.Layer("ScatterplotLayer", terminals, get_position="pos",
-                      get_radius=350, get_fill_color=[238, 243, 240, 200],
-                      get_line_color=[30, 115, 190], line_width_min_pixels=2, stroked=True),
-        ],
-        initial_view_state=pdk.ViewState(latitude=6.545, longitude=3.38, zoom=10.4, pitch=35),
-        map_style=_styles[map_theme],
-        tooltip={"html": "<b>{name}</b><br/>"
-                         f"{map_pol}: " + "{total} · {eff}<br/>"
-                         "Trips: {trips} · Buses: {buses} · Passengers: {pax}"},
-    )
-    st.pydeck_chart(deck, height=560)
-
-    # ── Corridor league board ──
-    st.markdown('<div class="sec-label">Corridor totals — sorted by selected metric</div>', unsafe_allow_html=True)
-    board = agg.sort_values(val_col, ascending=False).round(1)
-    st.dataframe(board.rename(columns={
-            "Total_kg": f"{map_pol} kg", "Eff": st.session_state.eff_unit,
-            "Trips": "Rows", "Buses": "Buses", "Pax": "Passengers"}),
-        use_container_width=True, hide_index=True)
-    st.caption("Corridor geometry is schematic. Add Route_Lat / Route_Lon columns to the manifest "
-               "to unlock exact per-route plotting in a future update.")
+    render_corridor_module()
 
 elif selected_module == "Fleet Health":
     st.markdown("## 🩺 Fleet Health")
@@ -1757,6 +1861,186 @@ elif selected_module == "Forecast":
                     for _, r in risk.iterrows()]
             res = db.save_ml_insights("risk", recs)
             st.success(f"Saved {res['saved']} risk scores") if not res["error"] else st.warning(res["error"])
+
+elif selected_module == "Data Quality":
+    st.markdown("## 🧪 Data Quality")
+    st.markdown(
+        '<div class="banner">A compliance tool is only as credible as its inputs. This module '
+        'validates every loaded row and names what it finds — <strong>impossible values, '
+        'outliers, duplicates and unmapped codes</strong> — with severity and affected-row '
+        'counts, so figures elsewhere in the console can be read with the right confidence.</div>',
+        unsafe_allow_html=True)
+
+    q = fdf.copy()
+    q["_trips"] = pd.to_numeric(q.get("Num_Trips_Today", 1), errors="coerce").fillna(1).clip(lower=1)
+    q["_trip_km"] = pd.to_numeric(q["Route_Distance_km"], errors="coerce") / q["_trips"]
+    q["_pax_trip"] = pd.to_numeric(q["Ridership"], errors="coerce") / q["_trips"]
+    _caps = {"High Capacity": 150, "HC": 150, "Midi": 80, "MIDI": 80,
+             "Mini": 18, "MINI": 18, "FLM": 18}
+    q["_cap"] = q["Bus_Category"].map(_caps).fillna(80)
+
+    checks = []  # (severity, name, mask, why-it-matters)
+    checks.append(("Critical", "Non-positive distance",
+        pd.to_numeric(q["Route_Distance_km"], errors="coerce").fillna(0) <= 0,
+        "Zero/negative distance makes every per-km figure meaningless for the row."))
+    checks.append(("Critical", "Ridership exceeds physical capacity",
+        q["_pax_trip"] > q["_cap"] * 1.3,
+        "More passengers per trip than 130% of the bus's capacity — likely a daily-vs-trip mixup."))
+    checks.append(("Warning", "Implausible trip distance (>120 km per trip)",
+        q["_trip_km"] > 120,
+        "A single urban trip longer than 120 km suggests the distance column holds something else."))
+    checks.append(("Warning", "Speed outlier (<5 or >90 km/h)",
+        (pd.to_numeric(q["Avg_Speed_kmh"], errors="coerce") < 5) |
+        (pd.to_numeric(q["Avg_Speed_kmh"], errors="coerce") > 90),
+        "Outside the range the COPERT speed curves are valid for — the engine clamps it, but the input is suspect."))
+    checks.append(("Warning", "Fractional trip counts",
+        pd.to_numeric(q.get("Num_Trips_Today", 1), errors="coerce").fillna(0) % 1 != 0,
+        "Half a trip doesn't exist — usually a sign of averaged or interpolated source data."))
+    checks.append(("Warning", "Duplicate Date + Bus + Route rows",
+        q.duplicated(subset=[c for c in ["Date", "Bus_ID", "Route_Name"] if c in q.columns], keep=False),
+        "The same bus-day counted twice inflates totals. The database blocks these; uploads don't."))
+    if "category_unmapped" in q.columns:
+        checks.append(("Info", "Unrecognised bus category",
+            q["category_unmapped"].astype(bool),
+            "Fell back to default emission factors — add the code to CATEGORY_ALIASES."))
+    if "fuel_unmapped" in q.columns:
+        checks.append(("Info", "Unrecognised fuel type",
+            q["fuel_unmapped"].astype(bool),
+            "Fell back to default emission factors — add the code to FUEL_ALIASES."))
+    checks.append(("Info", "Missing Euro standard",
+        ~q["Euro_Standard"].astype(str).str.startswith("Euro") if "Euro_Standard" in q.columns
+        else pd.Series(True, index=q.index),
+        "Defaults to Euro III — NOx/PM for these rows are an assumption, not data."))
+
+    results = []
+    for sev, name, mask, why in checks:
+        n = int(mask.fillna(False).sum())
+        results.append({"Severity": sev, "Check": name, "Rows affected": n,
+                        "% of data": round(100 * n / max(len(q), 1), 1), "Why it matters": why})
+    res_df = pd.DataFrame(results)
+
+    n_crit = int(res_df.loc[res_df.Severity == "Critical", "Rows affected"].gt(0).sum())
+    n_warn = int(res_df.loc[res_df.Severity == "Warning", "Rows affected"].gt(0).sum())
+    clean_pct = 100 - res_df["% of data"].max() if len(res_df) else 100
+    d1, d2, d3, d4 = st.columns(4)
+    d1.metric("Rows checked", f"{len(q):,}")
+    d2.metric("Critical findings", str(n_crit), delta="fix before trusting totals" if n_crit else "none", delta_color="inverse" if n_crit else "off")
+    d3.metric("Warnings", str(n_warn))
+    d4.metric("Checks run", str(len(res_df)))
+
+    st.markdown('<div class="sec-label">Findings</div>', unsafe_allow_html=True)
+    _sev_icon = {"Critical": "🔴", "Warning": "🟡", "Info": "🔵"}
+    res_df["Severity"] = res_df["Severity"].map(lambda x: f"{_sev_icon[x]} {x}")
+    st.dataframe(res_df, use_container_width=True, hide_index=True,
+                 column_config={"% of data": st.column_config.ProgressColumn(
+                     "% of data", min_value=0, max_value=100, format="%.1f%%")})
+
+    st.markdown('<div class="sec-label">Inspect affected rows</div>', unsafe_allow_html=True)
+    pick_check = st.selectbox("Finding", [c[1] for c in checks])
+    _mask = dict((c[1], c[2]) for c in checks)[pick_check].fillna(False)
+    bad = q[_mask]
+    if len(bad) == 0:
+        st.success("No rows affected by this check. ✓")
+    else:
+        show_cols = [c for c in ["Date", "Bus_ID", "Operator", "Route_Name",
+                                 "Route_Distance_km", "Num_Trips_Today", "Avg_Speed_kmh",
+                                 "Ridership", "Bus_Category", "Fuel_Type", "Euro_Standard"]
+                     if c in bad.columns]
+        st.dataframe(bad[show_cols].head(200), use_container_width=True, hide_index=True)
+        st.download_button("⬇ Download affected rows (CSV)",
+                           data=bad[show_cols].to_csv(index=False).encode(),
+                           file_name="data_quality_flagged.csv", mime="text/csv")
+
+elif selected_module == "What-If":
+    st.markdown("## 🎛 What-If Simulator")
+    st.markdown(
+        '<div class="banner">Fleet planning, not just reporting: pick interventions and the '
+        'scenario is <strong>recomputed through the real emissions engine</strong> — same math, '
+        'modified fleet. Baseline is the currently filtered data, so you can also scenario-test '
+        'a single operator or corridor.</div>', unsafe_allow_html=True)
+
+    w1, w2 = st.columns(2)
+    with w1:
+        conv_n = st.slider("Convert N worst CO₂ diesel buses…", 0, 100, 0,
+                           help="Ranked by total CO₂ in the current data.")
+        conv_to = st.selectbox("…to fuel", ["CNG", "Electric"])
+        euro_target = st.selectbox("Upgrade everything below…",
+                                   ["No change", "Euro IV", "Euro V", "Euro VI"],
+                                   help="Retrofit / replacement scenario for NOx & PM.")
+    with w2:
+        speed_gain = st.slider("Average speed improvement (km/h)", 0, 15, 0,
+                               help="Bus priority lanes / signal priority. Affects "
+                                    "speed-corrected pollutants in COPERT & Hybrid modes.")
+        ac_policy = st.selectbox("A/C policy", ["No change", "All A/C off", "All A/C on"])
+
+    if st.button("▶ Run scenario", type="primary"):
+        base_cols = ["Bus_Category", "Fuel_Type", "Route_Distance_km", "Avg_Speed_kmh",
+                     "Ridership", "Num_Trips_Today", "Euro_Standard", "Vehicle_Age_years",
+                     "AC_Status", "Engine_Model", "Revenue_Trip", "Idle_Minutes"]
+        sim = fdf[[c for c in base_cols if c in fdf.columns] + ["Bus_ID"]].copy()
+
+        changed = pd.Series(False, index=sim.index)
+        if conv_n > 0:
+            worst = (fdf[fdf["Fuel_Type"] == "Diesel"].groupby("Bus_ID")["CO2_kg"]
+                        .sum().sort_values(ascending=False).head(conv_n).index)
+            m = sim["Bus_ID"].isin(worst)
+            sim.loc[m, "Fuel_Type"] = conv_to
+            if conv_to == "Electric":
+                sim.loc[m & (sim["Bus_Category"] == "Mini"), "Bus_Category"] = "Midi"
+                # (no Electric Mini factor exists — modelled as the nearest class)
+            changed |= m
+        if euro_target != "No change":
+            order = {"Euro II": 2, "Euro III": 3, "Euro IV": 4, "Euro V": 5, "Euro VI": 6}
+            tgt = order[euro_target]
+            m = sim["Euro_Standard"].map(order).fillna(3) < tgt
+            sim.loc[m, "Euro_Standard"] = euro_target
+            changed |= m
+        if speed_gain > 0:
+            sim["Avg_Speed_kmh"] = pd.to_numeric(sim["Avg_Speed_kmh"], errors="coerce").fillna(25) + speed_gain
+            changed |= True
+        if ac_policy != "No change":
+            sim["AC_Status"] = (ac_policy == "All A/C on")
+            changed |= True
+
+        n_changed = int(changed.sum()) if isinstance(changed, pd.Series) else len(sim)
+        with st.spinner(f"Re-running the engine on {n_changed:,} modified rows…"):
+            # Only recompute rows the scenario touched; reuse baseline for the rest.
+            if isinstance(changed, pd.Series) and changed.sum() < len(sim):
+                redo = sim[changed]
+                res = redo.apply(lambda r: calculate_row(
+                    r, methodology, target_pollutants, ambient_c), axis=1)
+                scen_co2 = float(fdf.loc[~changed, "CO2_kg"].sum() + res["CO2_kg"].sum())
+                scen_nox = float(fdf.loc[~changed, "NOx_kg"].sum() + res["NOx_kg"].sum()) if "NOx_kg" in res else None
+                scen_pm  = float(fdf.loc[~changed, "PM_kg"].sum() + res["PM_kg"].sum()) if "PM_kg" in res else None
+            else:
+                res = sim.apply(lambda r: calculate_row(
+                    r, methodology, target_pollutants, ambient_c), axis=1)
+                scen_co2 = float(res["CO2_kg"].sum())
+                scen_nox = float(res["NOx_kg"].sum()) if "NOx_kg" in res else None
+                scen_pm  = float(res["PM_kg"].sum()) if "PM_kg" in res else None
+
+        base_co2 = float(fdf["CO2_kg"].sum())
+        st.markdown('<div class="sec-label">Scenario result</div>', unsafe_allow_html=True)
+        s1, s2, s3 = st.columns(3)
+        s1.metric("Baseline CO₂", f"{base_co2/1000:,.1f} t")
+        s2.metric("Scenario CO₂", f"{scen_co2/1000:,.1f} t",
+                  delta=f"{(scen_co2-base_co2)/1000:+,.1f} t "
+                        f"({(scen_co2/base_co2-1)*100:+.1f}%)",
+                  delta_color="inverse")
+        s3.metric("Rows modified", f"{n_changed:,}")
+
+        rows = [{"Pollutant": "CO₂ (t)", "Baseline": base_co2/1000, "Scenario": scen_co2/1000}]
+        if scen_nox is not None and "NOx" in target_pollutants:
+            rows.append({"Pollutant": "NOx (kg)", "Baseline": float(fdf["NOx_kg"].sum()), "Scenario": scen_nox})
+        if scen_pm is not None and "PM" in target_pollutants:
+            rows.append({"Pollutant": "PM (kg)", "Baseline": float(fdf["PM_kg"].sum()), "Scenario": scen_pm})
+        cmp_df = pd.DataFrame(rows).round(1)
+        chart_switcher(cmp_df, x="Pollutant", y=["Baseline", "Scenario"], key="whatif_cmp",
+                       kinds=("Bar", "Table"), default="Bar",
+                       title="Baseline vs scenario", height=340)
+        st.caption("Scenario totals use the same methodology, basis and ambient temperature "
+                   "as the rest of the console. Electric conversions add Nigerian-grid "
+                   "Scope 2 CO₂ — they are cleaner, not free.")
 
 elif selected_module == "Trip Inspector":
     st.markdown("## 🔬 Trip Inspector")

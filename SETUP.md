@@ -1,11 +1,12 @@
-# LAMATA Emissions Portal — Setup & Architecture
+# Fleet Emissions Console — Setup & Architecture
 
 ## Repo layout
 ```
-app.py                  Streamlit interface (10 modules)
+app.py                  Streamlit interface (12 modules)
 emissions_engine.py     v4 emissions math (readable, documented)
 db.py                   Supabase data layer (ingest / load / snapshots)
 ml_engine.py            ML: anomalies · forecasting · compliance risk
+themes.py               4 visual themes × dark/light variants
 requirements.txt        Streamlit Cloud dependencies
 backend/main.py         FastAPI service (optional, Phase 3)
 backend/requirements.txt

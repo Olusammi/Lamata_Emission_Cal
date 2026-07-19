@@ -1,5 +1,5 @@
 """
-LAMATA Emissions Engine v4
+Fleet Emissions Engine v4
 ==========================
 Written to be READABLE first. Every step is plain arithmetic:
 
@@ -335,7 +335,6 @@ def calculate_row(row, methodology, target_pollutants, ambient_c=DEFAULT_AMBIENT
     engine     = str(row.get("Engine_Model", "")).strip()
     idle_min   = float(row.get("Idle_Minutes", DEFAULT_IDLE_MINUTES) or DEFAULT_IDLE_MINUTES)
     is_revenue = parse_revenue_trip(row.get("Revenue_Trip", "True"))
-    revenue_n  = float(row.get("Revenue_Naira", 0) or 0)
 
     daily_km, trip_km, pax_per_trip, passenger_km = _derive_day(distance, num_trips, ridership)
 
@@ -367,7 +366,6 @@ def calculate_row(row, methodology, target_pollutants, ambient_c=DEFAULT_AMBIENT
             out[f"{pol}_g_km"]  = round(grams / daily_km, 2) if daily_km else 0.0
             out[f"{pol}_g_pkm"] = round(grams / passenger_km, 2) if (is_revenue and passenger_km) else float("nan")
         out["ac_uplift_kg"] = 0.0
-        out["CO2_kg_per_1000naira"] = round(out["CO2_kg"] / (revenue_n / 1000.0), 3) if revenue_n > 0 else float("nan")
         return pd.Series(out)
 
     # ── 4. Combustion buses: the four components, per pollutant ──
@@ -413,8 +411,6 @@ def calculate_row(row, methodology, target_pollutants, ambient_c=DEFAULT_AMBIENT
         out[f"{pol}_g_pkm"] = round(total_g / passenger_km, 2) if (is_revenue and passenger_km) else float("nan")
 
     out["ac_uplift_kg"] = round(ac_uplift_g / 1000.0, 4)
-    # Carbon intensity of revenue: kg CO₂ emitted per ₦1,000 earned.
-    out["CO2_kg_per_1000naira"] = round(out.get("CO2_kg", 0.0) / (revenue_n / 1000.0), 3) if revenue_n > 0 else float("nan")
     return pd.Series(out)
 
 
