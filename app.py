@@ -9,23 +9,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
 from emissions_engine import calculate_row, emission_breakdown, compliance_flag
-
-
-# ════════════════════════════════════════════════════════
-# 0.0 Test
-# ════════════════════════════════════════════════════════
-
-with st.sidebar.expander("🔌 DB test (temporary)"):
-    if st.button("Test raw connection"):
-        import requests
-        u = st.secrets["supabase"]["url"]
-        k = st.secrets["supabase"]["service_key"]
-        r = requests.get(f"{u}/rest/v1/buses?select=*",
-                         headers={"apikey": k, "Authorization": f"Bearer {k}"})
-        st.write("HTTP status:", r.status_code)
-        st.code(r.text[:300])
-        st.write("Key starts:", k[:12], "· URL:", u)
-
+import db
 
 # ════════════════════════════════════════════════════════
 # 0. PAGE CONFIG
@@ -480,8 +464,8 @@ with st.sidebar:
 
     selected_module = option_menu(
         menu_title=None,
-        options=["Dashboard","Fleet Intelligence","Pollutant Engine","Bus Efficiency","Corridor Map","Trip Inspector","Formula Explainer","Deep Search"],
-        icons=["speedometer2","diagram-3","cloud-haze2","bus-front","map","search-heart","calculator","table"],
+        options=["Dashboard","Fleet Intelligence","Pollutant Engine","Bus Efficiency","Corridor Map","Fleet Health","Forecast","Trip Inspector","Formula Explainer","Deep Search"],
+        icons=["speedometer2","diagram-3","cloud-haze2","bus-front","map","heart-pulse","graph-up-arrow","search-heart","calculator","table"],
         default_index=0,
         styles={
             "container":         {"padding":"0!important","background-color":"transparent"},
@@ -505,6 +489,26 @@ with st.sidebar:
         label_visibility="collapsed",
         help="Upload one file per month, or several at once — they're merged into a single fleet view automatically.",
     )
+
+    # ── DATABASE ──
+    st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
+        text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Database</div>""",
+        unsafe_allow_html=True)
+    _db_state, _db_msg = db.db_status()
+    _db_dot = {"connected": "#3EF2A0", "empty": "#FFC24B",
+               "unconfigured": "#5c7268", "error": "#FF6363"}[_db_state]
+    st.markdown(
+        f'<div style="font-size:11px;color:#8fa49a;line-height:1.5;padding:2px;">'
+        f'<span style="color:{_db_dot};">●</span> {_db_msg}</div>',
+        unsafe_allow_html=True)
+    save_uploads_to_db = st.checkbox(
+        "Auto-save uploads to database", value=(_db_state in ("connected", "empty")),
+        disabled=(_db_state in ("unconfigured", "error")),
+        help="New uploads are written to Supabase once (duplicates skipped), "
+             "then every future session loads instantly with no upload needed.")
+    if _db_state == "connected" and st.button("🔄 Reload from database", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
     # ── GLOBAL CONTROLS ──
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
@@ -595,6 +599,10 @@ MODULE_INTRO = {
                           "Per-category efficiency, load-factor scatter and the bus compliance ranking will appear here."),
     "Corridor Map":      ("🗺 Corridor Map",
                           "Interactive Lagos BRT corridor map, coloured by emission intensity, will appear here."),
+    "Fleet Health":      ("🩺 Fleet Health",
+                          "ML anomaly detection: buses drifting from their own normal or their peer group — an early-warning list for maintenance."),
+    "Forecast":          ("📈 Forecast",
+                          "Projected daily fleet CO₂ and ridership with confidence bands, plus per-bus compliance risk scores."),
     "Trip Inspector":    ("🔍 Trip Inspector",
                           "Pick any bus and day to see its CO₂ split into hot-running, cold-start, idling and A/C load."),
     "Formula Explainer": ("🧮 Formula Explainer",
@@ -603,16 +611,22 @@ MODULE_INTRO = {
                           "Filter, inspect and export the full calculated manifest as CSV."),
 }
 
-if not uploaded_files:
-    title, desc = MODULE_INTRO.get(selected_module, ("LAMATA Emissions Portal", ""))
+def render_module_shell(module, db_connected=False):
+    """Full interface, no data yet: draw the selected module's frame
+    with a compact 'awaiting data' panel where its charts will be."""
+    title, desc = MODULE_INTRO.get(module, ("LAMATA Emissions Portal", ""))
+    hint = ("The database is connected but empty — your first upload seeds it, "
+            "and every session after that loads automatically."
+            if db_connected else
+            "Upload one or more monthly manifests in the sidebar — CSV or Excel (.xlsx). "
+            "Several files at once are merged into a single fleet view automatically.")
     st.markdown(f"## {title}")
     st.markdown(f"""
     <div class="empty">
         <div class="icon">🚌</div>
         <h2>Awaiting route manifest</h2>
         <p>{desc}</p>
-        <p>Upload one or more monthly manifests in the sidebar — CSV or Excel (.xlsx).
-        Several files at once are merged into a single fleet view automatically.<br><br>
+        <p>{hint}<br><br>
         Required columns: <code>Date</code> <code>Route_Name</code> <code>Bus_ID</code>
         <code>Operator</code> <code>Bus_Category</code> <code>Fuel_Type</code>
         <code>Route_Distance_km</code> <code>Avg_Speed_kmh</code> <code>Ridership</code>
@@ -623,7 +637,6 @@ if not uploaded_files:
         IPCC Tier 2 · COPERT V (normalised speed curves) · Euro class NOx/PM ·
         Age deterioration · Temperature-aware cold start · A/C correction</p>
     </div>""", unsafe_allow_html=True)
-    st.stop()
 
 def _fuzzy_rename(df: pd.DataFrame, required: list, optional: list) -> tuple:
     """
@@ -753,6 +766,13 @@ def load_and_calc(files, method, pollutants, ambient=28.0, basis="passenger"):
         return None, file_log, {}, []
 
     df = pd.concat(frames, ignore_index=True, sort=False)
+    df = _clean_and_calculate(df, method, pollutants, ambient, basis)
+    return df, file_log, auto_log, []
+
+
+def _clean_and_calculate(df, method, pollutants, ambient, basis):
+    """Shared pipeline: normalise a raw manifest DataFrame (from uploads
+    OR the database) and run the emissions engine over it."""
 
     # ── Clean operator names (leading/trailing spaces) ──
     if "Operator" in df.columns:
@@ -772,7 +792,8 @@ def load_and_calc(files, method, pollutants, ambient=28.0, basis="passenger"):
         sample = pd.to_numeric(df["Revenue_Trip"].iloc[:20], errors="coerce").dropna()
         if len(sample) > 0 and sample.mean() > 10:
             numeric_rev = pd.to_numeric(df["Revenue_Trip"], errors="coerce").fillna(0)
-            df = df.rename(columns={"Revenue_Trip": "Revenue_Naira"})
+            if "Revenue_Naira" not in df.columns:      # DB rows already carry it
+                df = df.rename(columns={"Revenue_Trip": "Revenue_Naira"})
             df["Revenue_Trip"] = numeric_rev > 0
         else:
             df["Revenue_Trip"] = df["Revenue_Trip"].astype(str).str.lower() \
@@ -852,17 +873,57 @@ def load_and_calc(files, method, pollutants, ambient=28.0, basis="passenger"):
     else:
         df["Compliance"] = "N/A"
 
-    return df, file_log, auto_log, []
+    return df
 
 
-files_payload = tuple((f.name, f.getvalue()) for f in uploaded_files)
-result = load_and_calc(files_payload, methodology, target_pollutants, ambient_c, basis)
-df, file_log, auto_log, _unused = result
+@st.cache_data(show_spinner="Loading fleet history from database…", ttl=300)
+def load_db_and_calc(method, pollutants, ambient=28.0, basis="passenger"):
+    """Database path: pull every stored trip (with bus attributes) and
+    run it through the exact same cleaning + engine pipeline as uploads."""
+    raw = db.load_trips()
+    if raw is None or len(raw) == 0:
+        return None
+    return _clean_and_calculate(raw, method, pollutants, ambient, basis)
+
+
+# ════════════════════════════════════════════════════════
+# DATA RESOLUTION — uploads win; otherwise the database;
+# otherwise the module shell (full interface, no data yet)
+# ════════════════════════════════════════════════════════
+df, file_log, auto_log = None, [], {}
+data_source = None
+
+if uploaded_files:
+    files_payload = tuple((f.name, f.getvalue()) for f in uploaded_files)
+    df, file_log, auto_log, _unused = load_and_calc(
+        files_payload, methodology, target_pollutants, ambient_c, basis)
+    data_source = "upload"
+
+    # ── One-time ingestion into Supabase (deduplicated server-side) ──
+    if df is not None and save_uploads_to_db:
+        _ing_key = tuple((f.name, len(b)) for f, b in
+                         zip(uploaded_files, (p[1] for p in files_payload)))
+        if st.session_state.get("_ingested_key") != _ing_key:
+            with st.spinner("Saving manifest to database…"):
+                ing = db.ingest_dataframe(df, source_file=", ".join(f.name for f in uploaded_files))
+            st.session_state._ingested_key = _ing_key
+            if ing["error"]:
+                st.warning(f"Database save failed (app continues from the upload): {ing['error']}")
+            else:
+                st.toast(f"💾 Saved to database — {ing['buses']} buses, "
+                         f"{ing['trips_sent']:,} trip rows (duplicates skipped)")
+elif _db_state == "connected":
+    df = load_db_and_calc(methodology, tuple(target_pollutants), ambient_c, basis)
+    data_source = "database"
+
+if df is None and not uploaded_files:
+    render_module_shell(selected_module, db_connected=(_db_state in ("connected", "empty")))
+    st.stop()
 
 ok_files  = [f for f in file_log if f["status"] == "ok"]
 err_files = [f for f in file_log if f["status"] == "error"]
 
-if df is None:
+if df is None and data_source == "upload":
     # ── Every file failed — rich diagnostic UI ──
     st.markdown("### ❌ None of the uploaded files could be read")
     FIX_HINT = {
@@ -893,24 +954,30 @@ if df is None:
     st.info("💡 Tip: column order doesn't matter — only names need to match (case-insensitive, fuzzy-matched automatically).")
     st.stop()
 
-# ── Manifest log — confirms exactly what got loaded across monthly files ──
-log_rows = "".join(
-    f'<div class="board-row" style="grid-template-columns:1fr 100px 90px;">'
-    f'<div><div class="route">{f["name"]}</div></div>'
-    f'<div class="figure">{f["rows"]:,} rows</div>'
-    f'<div style="text-align:right;"><span class="status-chip {"good" if f["status"]=="ok" else "over"}">'
-    f'{"LOADED" if f["status"]=="ok" else "FAILED"}</span></div></div>'
-    for f in file_log
-)
-with st.expander(f"📋 Manifest log — {len(ok_files)} file(s) loaded, {len(df):,} total rows"
-                  + (f", {len(err_files)} failed" if err_files else ""),
-                  expanded=bool(err_files)):
-    st.markdown(f'<div class="board">{log_rows}</div>', unsafe_allow_html=True)
-    if err_files:
-        st.warning(
-            f"{len(err_files)} file(s) couldn't be matched and were skipped: "
-            + ", ".join(f"`{f['name']}`" for f in err_files)
-            + ". The rest of the data loaded fine — fix and re-upload the skipped file(s) separately if needed.")
+# ── Manifest log — confirms exactly what got loaded ──
+if data_source == "database":
+    st.markdown(
+        f'<div style="font-family:var(--mono,monospace);font-size:10.5px;letter-spacing:0.05em;'
+        f'color:#5c7268;margin-bottom:4px;">DATA SOURCE · SUPABASE · {len(df):,} trip rows · '
+        f'loaded automatically, no upload needed</div>', unsafe_allow_html=True)
+elif file_log:
+    log_rows = "".join(
+        f'<div class="board-row" style="grid-template-columns:1fr 100px 90px;">'
+        f'<div><div class="route">{f["name"]}</div></div>'
+        f'<div class="figure">{f["rows"]:,} rows</div>'
+        f'<div style="text-align:right;"><span class="status-chip {"good" if f["status"]=="ok" else "over"}">'
+        f'{"LOADED" if f["status"]=="ok" else "FAILED"}</span></div></div>'
+        for f in file_log
+    )
+    with st.expander(f"📋 Manifest log — {len(ok_files)} file(s) loaded, {len(df):,} total rows"
+                      + (f", {len(err_files)} failed" if err_files else ""),
+                      expanded=bool(err_files)):
+        st.markdown(f'<div class="board">{log_rows}</div>', unsafe_allow_html=True)
+        if err_files:
+            st.warning(
+                f"{len(err_files)} file(s) couldn't be matched and were skipped: "
+                + ", ".join(f"`{f['name']}`" for f in err_files)
+                + ". The rest of the data loaded fine — fix and re-upload the skipped file(s) separately if needed.")
 
 # ── Notify user of any auto-renames ──
 if auto_log:
@@ -1570,6 +1637,127 @@ elif selected_module == "Corridor Map":
     st.caption("Corridor geometry is schematic. Add Route_Lat / Route_Lon columns to the manifest "
                "to unlock exact per-route plotting in a future update.")
 
+elif selected_module == "Fleet Health":
+    st.markdown("## 🩺 Fleet Health")
+    st.markdown(
+        '<div class="banner">Machine-learning anomaly detection. Two checks per bus-day: '
+        'is this bus drifting from <strong>its own</strong> normal CO₂/km (z-score), and does it '
+        'stand out from <strong>its peer group</strong> of same-category, same-fuel buses '
+        '(Isolation Forest)? Persistent anomalies usually mean injectors, filters, brakes or '
+        'tyres — worth a workshop visit before they become breakdowns.</div>',
+        unsafe_allow_html=True)
+
+    import ml_engine
+    with st.spinner("Training anomaly models on the current (filtered) fleet…"):
+        anom_rows, health = ml_engine.detect_anomalies(fdf)
+
+    if health.empty:
+        st.info("Not enough data to train on — need at least ~50 rows with CO₂ enabled.")
+    else:
+        n_inv = int((health["Health"] == "Investigate").sum())
+        n_watch = int((health["Health"] == "Watch").sum())
+        h1, h2, h3, h4 = st.columns(4)
+        h1.metric("Buses analysed", f"{len(health):,}")
+        h2.metric("Investigate", str(n_inv), delta="priority list", delta_color="inverse")
+        h3.metric("Watch", str(n_watch))
+        h4.metric("Anomalous bus-days", f"{int(anom_rows['is_anomaly'].sum()):,} / {len(anom_rows):,}")
+
+        st.markdown('<div class="sec-label">Bus health league — worst first</div>', unsafe_allow_html=True)
+        show = health[health["Health"] != "Insufficient data"].head(40)
+        st.dataframe(show, use_container_width=True, hide_index=True,
+            column_config={
+                "Anomaly_rate": st.column_config.ProgressColumn("Anomaly rate", min_value=0, max_value=1, format="%.2f"),
+                "Avg_CO2_g_km": st.column_config.NumberColumn("Avg g CO₂/km", format="%.0f"),
+                "Worst_self_z": st.column_config.NumberColumn("Worst z", format="%.1f"),
+            })
+
+        st.markdown('<div class="sec-label">Inspect one bus — daily CO₂/km with anomalous days marked</div>', unsafe_allow_html=True)
+        pick = st.selectbox("Bus", show["Bus_ID"].tolist())
+        b = anom_rows[anom_rows["Bus_ID"] == pick].sort_values("Date")
+        if len(b):
+            figh = go.Figure()
+            figh.add_trace(go.Scatter(x=b["Date"], y=b["CO2_g_km"], mode="lines+markers",
+                                      name="CO₂ g/km", line=dict(width=2)))
+            bad = b[b["is_anomaly"]]
+            figh.add_trace(go.Scatter(x=bad["Date"], y=bad["CO2_g_km"], mode="markers",
+                                      name="Anomaly", marker=dict(size=11, symbol="x", color="#FF6363")))
+            figh.update_layout(height=340, margin=dict(l=10, r=10, t=10, b=10),
+                               legend=dict(orientation="h"))
+            st.plotly_chart(figh, use_container_width=True)
+
+        if db.get_client() is not None and st.button("💾 Save health scores to database"):
+            recs = [{"bus_id": r["Bus_ID"], "score": float(r["Anomaly_rate"]),
+                     "payload": {"health": r["Health"], "days": int(r["Days"]),
+                                 "avg_co2_g_km": float(r["Avg_CO2_g_km"])}}
+                    for _, r in health.iterrows()]
+            res = db.save_ml_insights("anomaly", recs)
+            st.success(f"Saved {res['saved']} bus scores") if not res["error"] else st.warning(res["error"])
+
+elif selected_module == "Forecast":
+    st.markdown("## 📈 Forecast")
+    st.markdown(
+        '<div class="banner">Transparent forecasting: <strong>linear trend + weekday pattern</strong>, '
+        'with a band showing how wrong the model has typically been on history. With a month or two '
+        'of data this is honest short-range projection, not prophecy — the band says so. Below it, '
+        'a gradient-boosted model scores each bus\'s <strong>compliance breach risk</strong> so '
+        'enforcement can be proactive.</div>', unsafe_allow_html=True)
+
+    import ml_engine
+    fkind = st.radio("Forecast", ["Fleet CO₂ (kg/day)", "Ridership (pax/day)"], horizontal=True)
+    val_col, src_col = (("CO2_kg", "CO2_kg") if fkind.startswith("Fleet") else ("Ridership", "Ridership"))
+    horizon = st.slider("Horizon (days)", 7, 60, 30)
+
+    daily = fdf.groupby("Date")[src_col].sum().reset_index()
+    fc = ml_engine.forecast_daily(daily, src_col, horizon)
+    if fc.empty:
+        st.info("Need at least 14 days of history for a forecast.")
+    else:
+        fut = fc[~fc["is_history"]]
+        figf = go.Figure()
+        figf.add_trace(go.Scatter(x=fc["Date"], y=fc["hi"], line=dict(width=0),
+                                  showlegend=False, hoverinfo="skip"))
+        figf.add_trace(go.Scatter(x=fc["Date"], y=fc["lo"], fill="tonexty",
+                                  fillcolor="rgba(30,115,190,0.15)", line=dict(width=0),
+                                  name="95% band", hoverinfo="skip"))
+        figf.add_trace(go.Scatter(x=fc[fc.is_history]["Date"], y=fc[fc.is_history]["actual"],
+                                  mode="lines", name="Actual", line=dict(width=2)))
+        figf.add_trace(go.Scatter(x=fut["Date"], y=fut["forecast"], mode="lines",
+                                  name="Forecast", line=dict(width=2, dash="dash", color="#3EF2A0")))
+        figf.update_layout(height=380, margin=dict(l=10, r=10, t=10, b=10),
+                           legend=dict(orientation="h"))
+        st.plotly_chart(figf, use_container_width=True)
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Next 7-day avg", f"{fut.head(7)['forecast'].mean():,.0f}")
+        c2.metric(f"Projected total ({horizon}d)", f"{fut['forecast'].sum():,.0f}")
+        trend_pct = (fut['forecast'].iloc[-1] / max(fc[fc.is_history]['forecast'].iloc[-1], 1e-9) - 1) * 100
+        c3.metric("Trend over horizon", f"{trend_pct:+.1f}%")
+
+    st.markdown('<div class="sec-label">Compliance breach risk — buses most likely to go Over Limit</div>',
+                unsafe_allow_html=True)
+    risk = ml_engine.compliance_risk(fdf)
+    if risk.empty:
+        st.info("Not enough Over-Limit examples in the current filter to train the risk model.")
+    else:
+        rc1, rc2 = st.columns([2, 1])
+        with rc1:
+            st.dataframe(risk.head(25), use_container_width=True, hide_index=True,
+                column_config={"Risk_score": st.column_config.ProgressColumn(
+                    "Breach risk", min_value=0, max_value=1, format="%.2f")})
+        with rc2:
+            band_ct = risk["Risk_band"].value_counts().reset_index()
+            band_ct.columns = ["Band", "Buses"]
+            st.plotly_chart(px.pie(band_ct, values="Buses", names="Band", hole=0.5,
+                                   color="Band",
+                                   color_discrete_map={"High": "#FF6363", "Elevated": "#FFC24B", "Low": "#3EF2A0"}),
+                            use_container_width=True)
+        if db.get_client() is not None and st.button("💾 Save risk scores to database"):
+            recs = [{"bus_id": r["Bus_ID"], "score": float(r["Risk_score"]),
+                     "payload": {"band": r["Risk_band"], "breaches": int(r["Breaches_so_far"])}}
+                    for _, r in risk.iterrows()]
+            res = db.save_ml_insights("risk", recs)
+            st.success(f"Saved {res['saved']} risk scores") if not res["error"] else st.warning(res["error"])
+
 elif selected_module == "Trip Inspector":
     st.markdown("## 🔬 Trip Inspector")
     st.markdown(
@@ -1933,3 +2121,13 @@ elif selected_module == "Deep Search":
         st.download_button(
             "⬇ Download CSV", data=out[show_cols].to_csv(index=False).encode(),
             file_name="lamata_export.csv", mime="text/csv", use_container_width=True)
+        if data_source == "database" and db.get_client() is not None:
+            if st.button("💾 Snapshot results to DB", use_container_width=True,
+                         help="Stores these calculated emissions stamped with methodology, "
+                              "ambient temp and engine version — so any figure in a report "
+                              "can be reproduced exactly later."):
+                snap = db.save_emissions_snapshot(fdf, methodology, ambient_c)
+                if snap["error"]:
+                    st.warning(snap["error"])
+                else:
+                    st.success(f"Snapshot saved — {snap['saved']:,} rows under '{methodology}'")
