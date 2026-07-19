@@ -16,17 +16,15 @@ from emissions_engine import calculate_row, emission_breakdown, compliance_flag
 # ════════════════════════════════════════════════════════
 
 with st.sidebar.expander("🔌 DB test (temporary)"):
-    if st.button("Test Supabase"):
-        try:
-            from supabase import create_client
-            sb = create_client(st.secrets["supabase"]["url"],
-                               st.secrets["supabase"]["service_key"])
-            sb.table("buses").upsert({"bus_id": "TEST-001", "operator": "Test Op"}).execute()
-            n = len(sb.table("buses").select("bus_id").execute().data)
-            sb.table("buses").delete().eq("bus_id", "TEST-001").execute()
-            st.success(f"✅ Live — write/read/delete all OK ({n} row(s) seen)")
-        except Exception as e:
-            st.error(f"❌ {e}")
+    if st.button("Test raw connection"):
+        import requests
+        u = st.secrets["supabase"]["url"]
+        k = st.secrets["supabase"]["service_key"]
+        r = requests.get(f"{u}/rest/v1/buses?select=*",
+                         headers={"apikey": k, "Authorization": f"Bearer {k}"})
+        st.write("HTTP status:", r.status_code)
+        st.code(r.text[:300])
+        st.write("Key starts:", k[:12], "· URL:", u)
 
 
 # ════════════════════════════════════════════════════════
