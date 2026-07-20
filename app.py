@@ -289,25 +289,32 @@ div[data-testid="stTabs"] button[aria-selected="true"] {{ color: var(--accent) !
 .gauge-status.monitor {{ background: var(--badge-mon-bg);  color: var(--badge-mon-text); }}
 .gauge-status.over    {{ background: var(--badge-over-bg); color: var(--badge-over-text); }}
 
-/* ── Floating AI assistant ── */
-.st-key-ai_fab button {{
-    position: fixed !important; bottom: 26px; right: 26px;
+/* ── Floating AI assistant (UPDATED FOR TOP-RIGHT POSITIONING) ── */
+.st-key-ai_fab button {
+    position: fixed !important; 
+    top: 70px !important;       /* Replaced bottom: 26px with top positioning to clear the header */
+    bottom: auto !important;     /* Force disables any conflicting bottom inheritance */
+    right: 26px;
     width: 58px; height: 58px; border-radius: 50% !important;
     z-index: 1000001; font-size: 24px !important; line-height: 1 !important;
     background: var(--accent) !important; color: #ffffff !important;
     border: none !important; box-shadow: 0 10px 28px rgba(0,0,0,0.45) !important;
     transition: transform .15s ease;
-}}
-.st-key-ai_fab button:hover {{ transform: scale(1.08); }}
-.st-key-ai_panel {{
-    position: fixed !important; bottom: 96px; right: 26px;
+}
+.st-key-ai_fab button:hover { transform: scale(1.08); }
+
+.st-key-ai_panel {
+    position: fixed !important; 
+    top: 140px !important;      /* Replaced bottom: 96px so the chat panel drops DOWN gracefully below the button */
+    bottom: auto !important;     /* Force disables any conflicting bottom inheritance */
+    right: 26px;
     width: 400px; max-width: calc(100vw - 40px);
     max-height: 64vh; overflow-y: auto; z-index: 1000000;
     background: var(--bg-card) !important;
     border: 1px solid var(--border2) !important; border-radius: 14px;
     box-shadow: 0 18px 50px rgba(0,0,0,0.5);
     padding: 14px 16px 10px !important;
-}}
+}
 .st-key-ai_panel .ai-head {{ display:flex; align-items:center; gap:8px;
     font-family: var(--disp); font-size: 14px; font-weight: 600;
     color: var(--text-prim); padding-bottom: 6px;
