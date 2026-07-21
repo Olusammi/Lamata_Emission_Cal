@@ -967,7 +967,7 @@ def _clean_and_calculate(df, method, pollutants, ambient, basis):
     if "Fuel_Type" in df.columns:
         raw_fuel = df["Fuel_Type"].astype(str).str.strip()
         df["Fuel_Unmapped"] = ~raw_fuel.str.lower().isin(FUEL_MAP.keys())
-        df["Fuel_Type"] = raw_fuel.str.lower().map(lambda x: FUEL_MAP.get(x, x.title()))
+        df["Fuel_Type"] = raw_fuel.str.lower().map(lambda x: FUEL_MAP.get(x, str(x).title()) if pd.notna(x) else "Unknown")
 
     # ── Num_Trips_Today: real data has fractional values, floor to int ──
     if "Num_Trips_Today" in df.columns:
