@@ -1379,9 +1379,9 @@ if selected_module == "Dashboard":
     months_all = sorted(df["Month"].dropna().unique(), key=lambda m: pd.to_datetime(m, format="%b %Y")) \
                  if "Month" in df.columns else []
     ops_all   = sorted([str(op) for op in df["Operator"].dropna().unique()])
-    euros_all = sorted(df["Euro_Standard"].unique())
-    fuels_all = sorted(df["Fuel_Type"].unique())
-    cats_all  = sorted(df["Bus_Category"].unique())
+    euros_all = sorted([str(eu) for eu in df["Euro_Standard"].dropna().unique()])
+    fuels_all = sorted([str(fu) for fu in df["Fuel_Type"].dropna().unique()])
+    cats_all  = sorted([str(bu) for bu in df["Bus_Category"].dropna().unique()])
 
     fc1, fc2, fc3 = st.columns(3)
     with fc1:
