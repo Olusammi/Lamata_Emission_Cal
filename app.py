@@ -1378,7 +1378,7 @@ if selected_module == "Dashboard":
     # ── Dropdown filter bar: Operator · Month · Date range · Euro · Fuel · Category ──
     months_all = sorted(df["Month"].dropna().unique(), key=lambda m: pd.to_datetime(m, format="%b %Y")) \
                  if "Month" in df.columns else []
-    ops_all   = sorted(df["Operator"].unique())
+    ops_all   = sorted([str(op) for op in df["Operator"].dropna().unique()])
     euros_all = sorted(df["Euro_Standard"].unique())
     fuels_all = sorted(df["Fuel_Type"].unique())
     cats_all  = sorted(df["Bus_Category"].unique())
