@@ -545,7 +545,7 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
         
-if _db_state == "connected":
+    if _db_state == "connected":
         with st.expander("🗑 Manage / delete uploads"):
             st.caption("Deleting is permanent. Enter the delete password to enable.")
             _pw = st.text_input("Delete password", type="password", key="del_pw")
