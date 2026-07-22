@@ -549,7 +549,7 @@ with st.sidebar:
         with st.expander("🗑 Manage / delete uploads"):
             st.caption("Deleting is permanent. Enter the delete password to enable.")
             _pw = st.text_input("Delete password", type="password", key="del_pw")
-            _pw_ok = _pw and _pw == st.secrets.get("delete", {}).get("password", "")
+            _pw_ok = _pw and _pw == st.secrets.get("🗑️", {}).get("password", "")
             if _pw and not _pw_ok:
                 st.error("Wrong password — delete disabled.")
 
