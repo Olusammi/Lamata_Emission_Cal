@@ -221,3 +221,51 @@ def save_ml_insights(kind: str, records: list) -> dict:
         return {"saved": len(clean), "error": None}
     except Exception as e:
         return {"saved": 0, "error": str(e)[:200]}
+
+
+# ──────────────────────────────────────────────────────────────
+# DELETE  (password-gated in the UI; see app.py)
+# ──────────────────────────────────────────────────────────────
+def list_uploads() -> list:
+    """Return stored uploads grouped by source_file, for the delete UI."""
+    sb = get_client()
+    if sb is None:
+        return []
+    try:
+        rows = sb.table("trips").select("source_file, trip_date").execute().data
+        by_file = {}
+        for r in rows:
+            f = r.get("source_file") or "(unnamed upload)"
+            g = by_file.setdefault(f, {"source_file": f, "rows": 0,
+                                       "first": r["trip_date"], "last": r["trip_date"]})
+            g["rows"] += 1
+            g["first"] = min(g["first"], r["trip_date"])
+            g["last"] = max(g["last"], r["trip_date"])
+        return sorted(by_file.values(), key=lambda x: x["last"], reverse=True)
+    except Exception:
+        return []
+
+
+def delete_upload(source_file: str) -> dict:
+    """Delete every trip row from one uploaded file.
+    Linked emissions/ml rows cascade-delete via the DB foreign keys."""
+    sb = get_client()
+    if sb is None:
+        return {"deleted": False, "error": "not configured"}
+    try:
+        sb.table("trips").delete().eq("source_file", source_file).execute()
+        return {"deleted": True, "error": None}
+    except Exception as e:
+        return {"deleted": False, "error": str(e)[:200]}
+
+
+def delete_all_trips() -> dict:
+    """Wipe ALL trips (and cascaded emissions/ml). Keeps the bus register."""
+    sb = get_client()
+    if sb is None:
+        return {"deleted": False, "error": "not configured"}
+    try:
+        sb.table("trips").delete().neq("id", -1).execute()  # matches every row
+        return {"deleted": True, "error": None}
+    except Exception as e:
+        return {"deleted": False, "error": str(e)[:200]}
