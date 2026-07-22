@@ -561,9 +561,7 @@ with st.sidebar:
             c1.markdown(f"**{u['source_file']}**  \n{u['rows']:,} rows · {u['first']}→{u['last']}")
             
             # --- ONE LINE DELETE ACTION ---
-            if c2.button("🗑️", key=f"del_{u['source_file']}", disabled=not _pw_ok, use_container_width=True): 
-                res = db.delete_upload(u["source_file"]); st.warning(res["error"]) 
-                if res["error"] else (st.success(f"Deleted {u['source_file']}"), st.cache_data.clear(), st.rerun())
+            if c2.button("🗑️", key=f"del_{u['source_file']}", disabled=not _pw_ok, use_container_width=True): res = db.delete_upload(u["source_file"]); st.warning(res["error"]) if res["error"] else (st.success(f"Deleted {u['source_file']}"), st.cache_data.clear(), st.rerun())
 
         if st.button("⚠ Delete ALL trips", disabled=not _pw_ok, use_container_width=True):
             res = db.delete_all_trips()
