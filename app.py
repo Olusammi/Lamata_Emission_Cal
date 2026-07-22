@@ -527,20 +527,34 @@ with st.sidebar:
 
     # ── DATABASE ──
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
-        text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Database</div>""",
+        text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Database Connect</div>""",
         unsafe_allow_html=True)
+    
+    # NEW FEATURE: Explicit switch to pull data from backend database
+    if "load_from_db" not in st.session_state:
+        st.session_state.load_from_db = False
+        
+    load_db_toggle = st.toggle("Fetch fleet data from database", value=st.session_state.load_from_db, 
+                               help="Turn this on to pull historic transit logs from Supabase cloud.")
+    if load_db_toggle != st.session_state.load_from_db:
+        st.session_state.load_from_db = load_db_toggle
+        st.cache_data.clear()
+        st.rerun()
+
     _db_state, _db_msg = db.db_status()
     _db_dot = {"connected": "#3EF2A0", "empty": "#FFC24B",
                "unconfigured": "#5c7268", "error": "#FF6363"}[_db_state]
     st.markdown(
-        f'<div style="font-size:11px;color:#8fa49a;line-height:1.5;padding:2px;">'
+        f'<div style="font-size:11px;color:#8fa49a;line-height:1.5;padding:2px;margin-bottom:4px;">'
         f'<span style="color:{_db_dot};">●</span> {_db_msg}</div>',
         unsafe_allow_html=True)
+
+    # TWEAK: Changed default value to False so it stays off until manually checked
     save_uploads_to_db = st.checkbox(
-        "Auto-save uploads to database", value=(_db_state in ("connected", "empty")),
+        "Auto-save uploads to database", value=False,
         disabled=(_db_state in ("unconfigured", "error")),
-        help="New uploads are written to Supabase once (duplicates skipped), "
-             "then every future session loads instantly with no upload needed.")
+        help="New uploads are written to Supabase once (duplicates skipped).")
+
     if _db_state == "connected" and st.button("🔄 Reload from database", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
@@ -557,19 +571,23 @@ with st.sidebar:
             if not _uploads:
                 st.caption("No uploads stored.")
             else:
-                # Wrap list in a scrollable container with a fixed height (e.g., 250px)
-                with st.container(height=250, border=False):
+                # Wrap list in a scrollable container
+                with st.container(height=220, border=False):
                     for u in _uploads:
-                        c1, c2 = st.columns([4, 1])
-                        # Displays only the file name, text vertically centered using a small padding tweak
-                        c1.markdown(f"<div style='padding-top: 4px; font-size: 13px;'>{u['source_file']}</div>", unsafe_allow_html=True)
-                        if c2.button("🗑️", key=f"del_{u['source_file']}", disabled=not _pw_ok):
-                            res = db.delete_upload(u["source_file"])
-                            if res["error"]:
-                                st.warning(res["error"])
-                            else:
-                                st.success(f"Deleted {u['source_file']}")
-                                st.cache_data.clear(); st.rerun()
+                        # FIX: Split comma-separated multiple file manifests into individual rows
+                        individual_files = [f.strip() for f in u['source_file'].split(",") if f.strip()]
+                        for file_name in individual_files:
+                            c1, c2 = st.columns([4, 1])
+                            c1.markdown(f"<div style='padding-top: 5px; font-size: 12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='{file_name}'>{file_name}</div>", unsafe_allow_html=True)
+                            
+                            # Passing the individual filename to the delete execution call
+                            if c2.button("🗑️", key=f"del_{file_name}_{u['id'] if 'id' in u else file_name}", disabled=not _pw_ok):
+                                res = db.delete_upload(file_name)
+                                if res["error"]:
+                                    st.warning(res["error"])
+                                else:
+                                    st.success(f"Deleted {file_name}")
+                                    st.cache_data.clear(); st.rerun()
 
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             if st.button("⚠ Delete ALL trips", disabled=not _pw_ok, use_container_width=True):
@@ -579,14 +597,16 @@ with st.sidebar:
                 else:
                     st.success("All trips deleted.")
                     st.cache_data.clear(); st.rerun()
-
+                    
     # ── GLOBAL CONTROLS ──
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
         text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Calculation</div>""",
         unsafe_allow_html=True)
+    
+    # TWEAK: Moved COPERT to the first index so it loads by default
     methodology = st.selectbox(
-        "Method", ["Hybrid","IPCC","COPERT"],
-        help="Hybrid: CO₂ via IPCC Tier 2, NOx/PM via COPERT V.\nIPCC: all pollutants fixed factor.\nCOPERT: all speed-corrected.",
+        "Method", ["COPERT", "Hybrid", "IPCC"],
+        help="COPERT: all speed-corrected.\nHybrid: CO₂ via IPCC Tier 2, NOx/PM via COPERT V.\nIPCC: all pollutants fixed factor.",
     )
     target_pollutants = st.multiselect(
         "Pollutants", ["CO2","NOx","PM"], default=["CO2","NOx"],
@@ -1088,7 +1108,9 @@ if uploaded_files:
             else:
                 st.toast(f"💾 Saved to database — {ing['buses']} buses, "
                          f"{ing['trips_sent']:,} trip rows (duplicates skipped)")
-elif _db_state == "connected":
+
+# ── NEW TWEAK ──
+elif _db_state == "connected" and st.session_state.get("load_from_db", False):
     df = load_db_and_calc(methodology, tuple(target_pollutants), ambient_c, basis)
     data_source = "database"
 
