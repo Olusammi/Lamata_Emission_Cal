@@ -546,30 +546,34 @@ with st.sidebar:
         st.rerun()
         
     if _db_state == "connected":
-    with st.expander("🗑 Manage / delete uploads"):
-        st.caption("Deleting is permanent. Enter the delete password to enable.")
-        _pw = st.text_input("Delete password", type="password", key="del_pw")
-        _pw_ok = _pw and _pw == st.secrets.get("delete", {}).get("password", "")
-        if _pw and not _pw_ok:
-            st.error("Wrong password — delete disabled.")
+        with st.expander("🗑 Manage / delete uploads"):
+            st.caption("Deleting is permanent. Enter the delete password to enable.")
+            _pw = st.text_input("Delete password", type="password", key="del_pw")
+            _pw_ok = _pw and _pw == st.secrets.get("delete", {}).get("password", "")
+            if _pw and not _pw_ok:
+                st.error("Wrong password — delete disabled.")
 
-        _uploads = db.list_uploads()
-        if not _uploads:
-            st.caption("No uploads stored.")
-        for u in _uploads:
-            c1, c2 = st.columns([3, 1])
-            c1.markdown(f"**{u['source_file']}**  \n{u['rows']:,} rows · {u['first']}→{u['last']}")
-            
-            # --- ONE LINE DELETE ACTION ---
-            if c2.button("🗑️", key=f"del_{u['source_file']}", disabled=not _pw_ok, use_container_width=True): res = db.delete_upload(u["source_file"]); st.warning(res["error"]) if res["error"] else (st.success(f"Deleted {u['source_file']}"), st.cache_data.clear(), st.rerun())
+            _uploads = db.list_uploads()
+            if not _uploads:
+                st.caption("No uploads stored.")
+            for u in _uploads:
+                c1, c2 = st.columns([3, 1])
+                c1.markdown(f"**{u['source_file']}**  \n{u['rows']:,} rows · {u['first']}→{u['last']}")
+                if c2.button("🗑️", key=f"del_{u['source_file']}", disabled=not _pw_ok):
+                    res = db.delete_upload(u["source_file"])
+                    if res["error"]:
+                        st.warning(res["error"])
+                    else:
+                        st.success(f"Deleted {u['source_file']}")
+                        st.cache_data.clear(); st.rerun()
 
-        if st.button("⚠ Delete ALL trips", disabled=not _pw_ok, use_container_width=True):
-            res = db.delete_all_trips()
-            if res["error"]:
-                st.warning(res["error"])
-            else:
-                st.success("All trips deleted.")
-                st.cache_data.clear(); st.rerun()
+            if st.button("⚠ Delete ALL trips", disabled=not _pw_ok, use_container_width=True):
+                res = db.delete_all_trips()
+                if res["error"]:
+                    st.warning(res["error"])
+                else:
+                    st.success("All trips deleted.")
+                    st.cache_data.clear(); st.rerun()
 
     # ── GLOBAL CONTROLS ──
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
