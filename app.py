@@ -567,20 +567,17 @@ with st.sidebar:
             if _pw and not _pw_ok:
                 st.error("Wrong password — delete disabled.")
 
-            # ── NEW FALLBACK EXTRACTION ──
-            # We first try the database list, but also inspect our live calculated manifest 
-            # to capture any file strings that didn't generate distinct upload tracking entries.
             _uploads = db.list_uploads() or []
             
-            # Extract raw unique names from our master dataset to cross-verify missing manifests
+            # Extract unique names cleanly from the database tracking structure
             manifest_pool = set()
-            if df is not None and "Source_File" in df.columns:
-                manifest_pool.update(df["Source_File"].dropna().unique())
-            
-            # Combine backend tracking rows with any unlisted active data strings
             for u in _uploads:
-                if "source_file" in u:
-                    manifest_pool.update([f.strip() for f in u['source_file'].split(",") if f.strip()])
+                if isinstance(u, dict) and "source_file" in u:
+                    # Unpack comma-separated files or handle individual strings
+                    files_split = [f.strip() for f in str(u['source_file']).split(",") if f.strip()]
+                    manifest_pool.update(files_split)
+                elif isinstance(u, str):
+                    manifest_pool.add(u.strip())
             
             unique_files = sorted(list(manifest_pool))
 
@@ -589,12 +586,10 @@ with st.sidebar:
             else:
                 # Wrap list in a scrollable container
                 with st.container(height=220, border=False):
-                    # Loop directly through our deduplicated list of individual files
                     for i, file_name in enumerate(unique_files):
                         c1, c2 = st.columns([4, 1])
                         c1.markdown(f"<div style='padding-top: 5px; font-size: 12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='{file_name}'>{file_name}</div>", unsafe_allow_html=True)
                         
-                        # Use a safe index position tracker to make sure Streamlit keys are perfectly unique
                         if c2.button("🗑️", key=f"del_sidebar_{file_name}_{i}", disabled=not _pw_ok):
                             res = db.delete_upload(file_name)
                             if res["error"]:
