@@ -567,27 +567,41 @@ with st.sidebar:
             if _pw and not _pw_ok:
                 st.error("Wrong password — delete disabled.")
 
-            _uploads = db.list_uploads()
-            if not _uploads:
+            # ── NEW FALLBACK EXTRACTION ──
+            # We first try the database list, but also inspect our live calculated manifest 
+            # to capture any file strings that didn't generate distinct upload tracking entries.
+            _uploads = db.list_uploads() or []
+            
+            # Extract raw unique names from our master dataset to cross-verify missing manifests
+            manifest_pool = set()
+            if df is not None and "Source_File" in df.columns:
+                manifest_pool.update(df["Source_File"].dropna().unique())
+            
+            # Combine backend tracking rows with any unlisted active data strings
+            for u in _uploads:
+                if "source_file" in u:
+                    manifest_pool.update([f.strip() for f in u['source_file'].split(",") if f.strip()])
+            
+            unique_files = sorted(list(manifest_pool))
+
+            if not unique_files:
                 st.caption("No uploads stored.")
             else:
                 # Wrap list in a scrollable container
                 with st.container(height=220, border=False):
-                    for u in _uploads:
-                        # FIX: Split comma-separated multiple file manifests into individual rows
-                        individual_files = [f.strip() for f in u['source_file'].split(",") if f.strip()]
-                        for file_name in individual_files:
-                            c1, c2 = st.columns([4, 1])
-                            c1.markdown(f"<div style='padding-top: 5px; font-size: 12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='{file_name}'>{file_name}</div>", unsafe_allow_html=True)
-                            
-                            # Passing the individual filename to the delete execution call
-                            if c2.button("🗑️", key=f"del_{file_name}_{u['id'] if 'id' in u else file_name}", disabled=not _pw_ok):
-                                res = db.delete_upload(file_name)
-                                if res["error"]:
-                                    st.warning(res["error"])
-                                else:
-                                    st.success(f"Deleted {file_name}")
-                                    st.cache_data.clear(); st.rerun()
+                    # Loop directly through our deduplicated list of individual files
+                    for i, file_name in enumerate(unique_files):
+                        c1, c2 = st.columns([4, 1])
+                        c1.markdown(f"<div style='padding-top: 5px; font-size: 12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='{file_name}'>{file_name}</div>", unsafe_allow_html=True)
+                        
+                        # Use a safe index position tracker to make sure Streamlit keys are perfectly unique
+                        if c2.button("🗑️", key=f"del_sidebar_{file_name}_{i}", disabled=not _pw_ok):
+                            res = db.delete_upload(file_name)
+                            if res["error"]:
+                                st.warning(res["error"])
+                            else:
+                                st.success(f"Deleted {file_name}")
+                                st.cache_data.clear(); st.rerun()
 
             st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             if st.button("⚠ Delete ALL trips", disabled=not _pw_ok, use_container_width=True):
