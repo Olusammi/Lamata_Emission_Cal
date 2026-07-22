@@ -556,17 +556,22 @@ with st.sidebar:
             _uploads = db.list_uploads()
             if not _uploads:
                 st.caption("No uploads stored.")
-            for u in _uploads:
-                c1, c2 = st.columns([3, 1])
-                c1.markdown(f"**{u['source_file']}**  \n{u['rows']:,} rows · {u['first']}→{u['last']}")
-                if c2.button("🗑️", key=f"del_{u['source_file']}", disabled=not _pw_ok):
-                    res = db.delete_upload(u["source_file"])
-                    if res["error"]:
-                        st.warning(res["error"])
-                    else:
-                        st.success(f"Deleted {u['source_file']}")
-                        st.cache_data.clear(); st.rerun()
+            else:
+                # Wrap list in a scrollable container with a fixed height (e.g., 250px)
+                with st.container(height=250, border=False):
+                    for u in _uploads:
+                        c1, c2 = st.columns([4, 1])
+                        # Displays only the file name, text vertically centered using a small padding tweak
+                        c1.markdown(f"<div style='padding-top: 4px; font-size: 13px;'>{u['source_file']}</div>", unsafe_allow_html=True)
+                        if c2.button("🗑️", key=f"del_{u['source_file']}", disabled=not _pw_ok):
+                            res = db.delete_upload(u["source_file"])
+                            if res["error"]:
+                                st.warning(res["error"])
+                            else:
+                                st.success(f"Deleted {u['source_file']}")
+                                st.cache_data.clear(); st.rerun()
 
+            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
             if st.button("⚠ Delete ALL trips", disabled=not _pw_ok, use_container_width=True):
                 res = db.delete_all_trips()
                 if res["error"]:
