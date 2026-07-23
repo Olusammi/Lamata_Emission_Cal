@@ -527,96 +527,89 @@ with st.sidebar:
 
     # ── DATABASE ──
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
-        text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Database Connect</div>""",
+        text-transform:uppercase;color:#5c7268;margin:18px 0 8px;padding:0 2px;">Database Controls</div>""",
         unsafe_allow_html=True)
     
-    # NEW FEATURE: Explicit switch to pull data from backend database
     if "load_from_db" not in st.session_state:
         st.session_state.load_from_db = False
-        
+
     load_db_toggle = st.toggle("Fetch fleet data from database", value=st.session_state.load_from_db, 
-                               help="Turn this on to pull historic transit logs from Supabase cloud.")
+                               help="Turn this on to interact with Supabase storage engine.")
+    
     if load_db_toggle != st.session_state.load_from_db:
         st.session_state.load_from_db = load_db_toggle
+        # Reset file selections on connection state toggle to prevent state mismatch
+        if "selected_db_files" in st.session_state:
+            del st.session_state["selected_db_files"]
         st.cache_data.clear()
         st.rerun()
 
     _db_state, _db_msg = db.db_status()
-    _db_dot = {"connected": "#3EF2A0", "empty": "#FFC24B",
-               "unconfigured": "#5c7268", "error": "#FF6363"}[_db_state]
-    st.markdown(
-        f'<div style="font-size:11px;color:#8fa49a;line-height:1.5;padding:2px;margin-bottom:4px;">'
-        f'<span style="color:{_db_dot};">●</span> {_db_msg}</div>',
-        unsafe_allow_html=True)
+    _db_dot = {"connected": "#3EF2A0", "empty": "#FFC24B", "unconfigured": "#5c7268", "error": "#FF6363"}[_db_state]
+    st.markdown(f'<div style="font-size:11px;color:#8fa49a;padding:2px;"><span style="color:{_db_dot};">●</span> {_db_msg}</div>', unsafe_allow_html=True)
 
-    # TWEAK: Changed default value to False so it stays off until manually checked
-    save_uploads_to_db = st.checkbox(
-        "Auto-save uploads to database", value=False,
-        disabled=(_db_state in ("unconfigured", "error")),
-        help="New uploads are written to Supabase once (duplicates skipped).")
+    # Global array to hold available items safely
+    db_file_options = []
+    
+    if _db_state == "connected" and st.session_state.load_from_db:
+        # Fetch the distinct storage blocks recorded on the server
+        _uploads = db.list_uploads() or []
+        found_names = set()
+        for u in _uploads:
+            if isinstance(u, dict) and "source_file" in u:
+                found_names.update([f.strip() for f in str(u['source_file']).split(",") if f.strip()])
+            elif isinstance(u, str):
+                found_names.add(u.strip())
+        db_file_options = sorted(list(found_names))
 
-    if _db_state == "connected" and st.button("🔄 Reload from database", use_container_width=True):
+        # NEW SELECTIVE FILENAME LOADING FEATURE
+        if db_file_options:
+            st.markdown('<div style="font-size:10px; font-weight:500; color:var(--text-tert); margin-top:10px; margin-bottom:2px;">CHOOSE ACTIVE MANIFESTS</div>', unsafe_allow_html=True)
+            chosen_files = st.multiselect(
+                "Select active files",
+                options=db_file_options,
+                default=db_file_options,  # Defaults to select all files
+                key="selected_db_files",
+                label_visibility="collapsed",
+                help="Deselect any file to temporarily drop its trip rows from calculations."
+            )
+            # Trigger a rerun if the user changes selections to update the charts
+            if "last_selected_db_files" in st.session_state and st.session_state.last_selected_db_files != chosen_files:
+                st.session_state.last_selected_db_files = chosen_files
+                st.rerun()
+            st.session_state.last_selected_db_files = chosen_files
+
+    save_uploads_to_db = st.checkbox("Auto-save uploads to database", value=False, disabled=(_db_state in ("unconfigured", "error")))
+
+    if _db_state == "connected" and st.button("🔄 Force Clear App Cache", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
         
     if _db_state == "connected":
-        with st.expander("🗑 Manage / delete uploads"):
-            st.caption("Deleting is permanent. Enter the delete password to enable.")
+        with st.expander("🗑 Delete stored items"):
+            st.caption("Enter delete password to unlock controls.")
             _pw = st.text_input("Delete password", type="password", key="del_pw")
             _pw_ok = _pw and _pw == st.secrets.get("delete", {}).get("password", "")
-            if _pw and not _pw_ok:
-                st.error("Wrong password — delete disabled.")
-
-            # 1. Fetch backend tracking rows
-            _uploads = db.list_uploads() or []
             
-            # 2. Use a set to completely deduplicate and cleanly sort file records
-            manifest_pool = set()
-            
-            # Context-first capture: Instantly read live active uploads from the sidebar uploader widget state
-            if uploaded_files:
-                manifest_pool.update([f.name for f in uploaded_files if f.name])
-            
-            # Database capture: Extract and sanitize file paths returned from past database ingestion sessions
-            for u in _uploads:
-                if isinstance(u, dict) and "source_file" in u:
-                    raw_str = str(u['source_file'])
-                    # Clean out trailing dots, truncations, or ellipses added by the database storage constraint
-                    clean_str = raw_str.replace("...", "").replace("…", "")
-                    files_split = [f.strip() for f in clean_str.split(",") if f.strip()]
-                    manifest_pool.update(files_split)
-                elif isinstance(u, str):
-                    manifest_pool.add(u.replace("...", "").replace("…", "").strip())
-            
-            unique_files = sorted(list(manifest_pool))
-
-            if not unique_files:
-                st.caption("No uploads stored.")
+            # Use the parsed files pool we extracted directly from database profiles above
+            if not db_file_options:
+                st.caption("No files discovered in database index.")
             else:
-                # Wrap list in our scrollable container frame
-                with st.container(height=220, border=False):
-                    for i, file_name in enumerate(unique_files):
+                with st.container(height=180, border=False):
+                    for i, file_name in enumerate(db_file_options):
                         c1, c2 = st.columns([4, 1])
-                        # Render text cleanly with truncation fallback logic handles directly by web browser CSS styles
-                        c1.markdown(f"<div style='padding-top: 5px; font-size: 12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='{file_name}'>{file_name}</div>", unsafe_allow_html=True)
-                        
-                        # Generate isolated, explicit execution keys based on exact index maps to prevent rendering drops
-                        if c2.button("🗑️", key=f"del_sidebar_row_{i}_{file_name[:10]}", disabled=not _pw_ok):
+                        c1.markdown(f"<div style='padding-top:5px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{file_name}</div>", unsafe_allow_html=True)
+                        if c2.button("🗑️", key=f"del_item_{i}_{file_name[:8]}", disabled=not _pw_ok):
                             res = db.delete_upload(file_name)
-                            if res["error"]:
-                                st.warning(res["error"])
+                            if res["error"]: st.warning(res["error"])
                             else:
-                                st.success(f"Deleted {file_name}")
-                                st.cache_data.clear(); st.rerun()
+                                st.success("Deleted"); st.cache_data.clear(); st.rerun()
 
-            st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
-            if st.button("⚠ Delete ALL trips", disabled=not _pw_ok, use_container_width=True):
+            st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+            if st.button("⚠ Wipe Entire Database", disabled=not _pw_ok, use_container_width=True):
                 res = db.delete_all_trips()
-                if res["error"]:
-                    st.warning(res["error"])
-                else:
-                    st.success("All trips deleted.")
-                    st.cache_data.clear(); st.rerun()
+                if res["error"]: st.warning(res["error"])
+                else: st.success("Database cleared."); st.cache_data.clear(); st.rerun()
                     
     # ── GLOBAL CONTROLS ──
     st.markdown("""<div style="font-size:10px;font-weight:600;letter-spacing:0.08em;
@@ -1103,8 +1096,7 @@ def load_db_and_calc(method, pollutants, ambient=28.0, basis="passenger"):
 
 
 # ════════════════════════════════════════════════════════
-# DATA RESOLUTION — uploads win; otherwise the database;
-# otherwise the module shell (full interface, no data yet)
+# DATA RESOLUTION — uploads win; otherwise the database
 # ════════════════════════════════════════════════════════
 df, file_log, auto_log = None, [], {}
 data_source = None
@@ -1114,25 +1106,31 @@ if uploaded_files:
     df, file_log, auto_log, _unused = load_and_calc(
         files_payload, methodology, target_pollutants, ambient_c, basis)
     data_source = "upload"
-
-    # ── One-time ingestion into Supabase (deduplicated server-side) ──
+    
     if df is not None and save_uploads_to_db:
-        _ing_key = tuple((f.name, len(b)) for f, b in
-                         zip(uploaded_files, (p[1] for p in files_payload)))
+        _ing_key = tuple((f.name, len(b)) for f, b in zip(uploaded_files, (p[1] for p in files_payload)))
         if st.session_state.get("_ingested_key") != _ing_key:
             with st.spinner("Saving manifest to database…"):
                 ing = db.ingest_dataframe(df, source_file=", ".join(f.name for f in uploaded_files))
             st.session_state._ingested_key = _ing_key
-            if ing["error"]:
-                st.warning(f"Database save failed (app continues from the upload): {ing['error']}")
-            else:
-                st.toast(f"💾 Saved to database — {ing['buses']} buses, "
-                         f"{ing['trips_sent']:,} trip rows (duplicates skipped)")
+            if not ing["error"]:
+                st.toast(f"💾 Saved to database successfully.")
 
-# ── NEW TWEAK ──
+# DATABASE LOADING LAYER WITH CHOSEN FILENAME INTERCEPTION
 elif _db_state == "connected" and st.session_state.get("load_from_db", False):
-    df = load_db_and_calc(methodology, tuple(target_pollutants), ambient_c, basis)
-    data_source = "database"
+    raw_df = load_db_and_calc(methodology, tuple(target_pollutants), ambient_c, basis)
+    
+    if raw_df is not None:
+        # Check our session state multiselect picker configuration
+        selected_manifests = st.session_state.get("selected_db_files", [])
+        
+        if selected_manifests and "Source_File" in raw_df.columns:
+            # Drop any trip records whose source file string isn't selected in the dropdown
+            df = raw_df[raw_df["Source_File"].isin(selected_manifests)].reset_index(drop=True)
+        else:
+            df = raw_df
+            
+        data_source = "database"
 
 if df is None and not uploaded_files:
     render_module_shell(selected_module, db_connected=(_db_state in ("connected", "empty")))
