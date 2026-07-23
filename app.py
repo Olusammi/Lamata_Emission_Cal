@@ -567,30 +567,41 @@ with st.sidebar:
             if _pw and not _pw_ok:
                 st.error("Wrong password — delete disabled.")
 
+            # 1. Fetch backend tracking rows
             _uploads = db.list_uploads() or []
             
-            # Extract unique names cleanly from the database tracking structure
+            # 2. Use a set to completely deduplicate and cleanly sort file records
             manifest_pool = set()
+            
+            # Context-first capture: Instantly read live active uploads from the sidebar uploader widget state
+            if uploaded_files:
+                manifest_pool.update([f.name for f in uploaded_files if f.name])
+            
+            # Database capture: Extract and sanitize file paths returned from past database ingestion sessions
             for u in _uploads:
                 if isinstance(u, dict) and "source_file" in u:
-                    # Unpack comma-separated files or handle individual strings
-                    files_split = [f.strip() for f in str(u['source_file']).split(",") if f.strip()]
+                    raw_str = str(u['source_file'])
+                    # Clean out trailing dots, truncations, or ellipses added by the database storage constraint
+                    clean_str = raw_str.replace("...", "").replace("…", "")
+                    files_split = [f.strip() for f in clean_str.split(",") if f.strip()]
                     manifest_pool.update(files_split)
                 elif isinstance(u, str):
-                    manifest_pool.add(u.strip())
+                    manifest_pool.add(u.replace("...", "").replace("…", "").strip())
             
             unique_files = sorted(list(manifest_pool))
 
             if not unique_files:
                 st.caption("No uploads stored.")
             else:
-                # Wrap list in a scrollable container
+                # Wrap list in our scrollable container frame
                 with st.container(height=220, border=False):
                     for i, file_name in enumerate(unique_files):
                         c1, c2 = st.columns([4, 1])
+                        # Render text cleanly with truncation fallback logic handles directly by web browser CSS styles
                         c1.markdown(f"<div style='padding-top: 5px; font-size: 12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;' title='{file_name}'>{file_name}</div>", unsafe_allow_html=True)
                         
-                        if c2.button("🗑️", key=f"del_sidebar_{file_name}_{i}", disabled=not _pw_ok):
+                        # Generate isolated, explicit execution keys based on exact index maps to prevent rendering drops
+                        if c2.button("🗑️", key=f"del_sidebar_row_{i}_{file_name[:10]}", disabled=not _pw_ok):
                             res = db.delete_upload(file_name)
                             if res["error"]:
                                 st.warning(res["error"])
