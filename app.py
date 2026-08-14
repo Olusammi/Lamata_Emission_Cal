@@ -13,7 +13,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
-from emissions_engine import calculate_row, emission_breakdown, compliance_flag
+from emissions_engine import calculate_row, emission_breakdown, compliance_flag, EURO_ORDER
 import db
 import ai_engine
 import themes as themes_mod
@@ -661,6 +661,14 @@ with st.sidebar:
     target_pollutants = st.multiselect(
         "Pollutants", ["CO2","NOx","PM"], default=["CO2","NOx"],
     )
+    real_world_nox = st.checkbox(
+        "Real-world NOx estimate (diesel Euro V/VI/VII)", value=False,
+        help="Adds a second NOx figure alongside the type-approval one, scaled by the "
+             "documented real-world/lab gap (EEA/ICCT research) — Euro V had no real-driving "
+             "test requirement and commonly ran 3-4x its lab limit in practice; Euro VI's RDE "
+             "testing narrows that to roughly 1.1-1.5x. The type-approval figure stays the "
+             "primary/legal one everywhere in the console; this is a supplementary estimate.",
+    )
     basis_choice = st.radio(
         "Emission basis", ["Per passenger", "Per vehicle"],
         horizontal=True,
@@ -987,7 +995,7 @@ def _read_raw_file(name, fbytes):
 
 
 @st.cache_data(show_spinner="Reading and calculating emissions…", ttl=300)
-def load_and_calc(files, method, pollutants, ambient=28.0, basis="passenger"):
+def load_and_calc(files, method, pollutants, ambient=28.0, basis="passenger", real_world_nox=False):
     """files: tuple of (filename, filebytes) — one per uploaded monthly manifest.
     Each file is read and column-matched independently, then all valid files
     are merged into a single dataframe before calculation."""
@@ -1015,11 +1023,11 @@ def load_and_calc(files, method, pollutants, ambient=28.0, basis="passenger"):
         return None, file_log, {}, []
 
     df = pd.concat(frames, ignore_index=True, sort=False)
-    df = _clean_and_calculate(df, method, pollutants, ambient, basis)
+    df = _clean_and_calculate(df, method, pollutants, ambient, basis, real_world_nox)
     return df, file_log, auto_log, []
 
 
-def _clean_and_calculate(df, method, pollutants, ambient, basis):
+def _clean_and_calculate(df, method, pollutants, ambient, basis, real_world_nox=False):
     """Shared pipeline: normalise a raw manifest DataFrame (from uploads
     OR the database) and run the emissions engine over it."""
 
@@ -1101,7 +1109,7 @@ def _clean_and_calculate(df, method, pollutants, ambient, basis):
             df[col] = val
 
     # ── Calculate emissions ──
-    results = df.apply(lambda r: calculate_row(r, method, pollutants, ambient), axis=1)
+    results = df.apply(lambda r: calculate_row(r, method, pollutants, ambient, real_world_nox), axis=1)
     df = pd.concat([df, results], axis=1)
 
     # ── Emission basis ──
@@ -1126,13 +1134,13 @@ def _clean_and_calculate(df, method, pollutants, ambient, basis):
 
 
 @st.cache_data(show_spinner="Loading fleet history from database…", ttl=300)
-def load_db_and_calc(method, pollutants, ambient=28.0, basis="passenger"):
+def load_db_and_calc(method, pollutants, ambient=28.0, basis="passenger", real_world_nox=False):
     """Database path: pull every stored trip (with bus attributes) and
     run it through the exact same cleaning + engine pipeline as uploads."""
     raw = db.load_trips()
     if raw is None or len(raw) == 0:
         return None
-    return _clean_and_calculate(raw, method, pollutants, ambient, basis)
+    return _clean_and_calculate(raw, method, pollutants, ambient, basis, real_world_nox)
 
 
 # ════════════════════════════════════════════════════════
@@ -1144,7 +1152,7 @@ data_source = None
 if uploaded_files:
     files_payload = tuple((f.name, f.getvalue()) for f in uploaded_files)
     df, file_log, auto_log, _unused = load_and_calc(
-        files_payload, methodology, target_pollutants, ambient_c, basis)
+        files_payload, methodology, target_pollutants, ambient_c, basis, real_world_nox)
     data_source = "upload"
     
     if df is not None and save_uploads_to_db:
@@ -1158,7 +1166,7 @@ if uploaded_files:
 
 # DATABASE LOADING LAYER WITH CHOSEN FILENAME INTERCEPTION
 elif _db_state == "connected" and st.session_state.get("load_from_db", False):
-    raw_df = load_db_and_calc(methodology, tuple(target_pollutants), ambient_c, basis)
+    raw_df = load_db_and_calc(methodology, tuple(target_pollutants), ambient_c, basis, real_world_nox)
     
     if raw_df is not None:
         # Check our session state multiselect picker configuration
@@ -1871,6 +1879,50 @@ elif selected_module == "Pollutant Engine":
         fig4.update_layout(**PLY_BASE, title_font_size=13)
         with_table_option(fig4, heat_pivot.reset_index().round(1), key="pe_heat")
 
+    # Real-world vs type-approval NOx (diesel Euro V/VI/VII, when the sidebar toggle is on)
+    if "NOx" in target_pollutants and "NOx_realworld_kg" in fdf.columns:
+        st.markdown('<div class="sec-label">Real-world vs type-approval NOx (diesel)</div>',
+                    unsafe_allow_html=True)
+        st.markdown(
+            '<div class="banner">Type-approval NOx is the lab-cycle figure used for compliance. '
+            'Real-world NOx applies the documented on-road gap for diesel Euro V/VI/VII '
+            '(EEA/ICCT research) — Euro V had no real-driving test requirement at all, so the '
+            'gap there is largest.</div>', unsafe_allow_html=True)
+        nox_rw = fdf.groupby("Euro_Standard").agg(
+            Type_approval_kg=("NOx_kg", "sum"),
+            Real_world_kg=("NOx_realworld_kg", "sum"),
+        ).reset_index().melt(id_vars="Euro_Standard", var_name="Basis", value_name="kg")
+        nox_rw["Basis"] = nox_rw["Basis"].map({"Type_approval_kg": "Type-approval", "Real_world_kg": "Real-world"})
+        chart_switcher(nox_rw.round(1), x="Euro_Standard", y="kg", color="Basis",
+                       key="pe_nox_rw", kinds=("Bar", "Table"),
+                       title="Total NOx — type-approval vs real-world estimate, by Euro class",
+                       y_label="kg NOx", height=340)
+
+    # Exhaust vs non-exhaust (brake + tyre) PM
+    if "PM" in target_pollutants and "PM10_nonexhaust_g" in fdf.columns:
+        st.markdown('<div class="sec-label">Exhaust vs non-exhaust PM (brake + tyre wear)</div>',
+                    unsafe_allow_html=True)
+        st.markdown(
+            '<div class="banner">Non-exhaust PM (brake and tyre wear) is not regulated for buses '
+            'under any current standard, but as exhaust filters have cut tailpipe PM, it is now '
+            'often the larger share of a vehicle\'s real particulate output — electric/hybrid '
+            'buses cut brake-wear PM via regenerative braking, but not tyre wear.</div>',
+            unsafe_allow_html=True)
+        exhaust_kg = fdf["PM_kg"].sum() if "PM_kg" in fdf.columns else 0.0
+        nonexhaust_kg = fdf["PM10_nonexhaust_g"].sum() / 1000.0
+        pm1, pm2, pm3 = st.columns(3)
+        pm1.metric("Exhaust PM", fmt_kg(exhaust_kg))
+        pm2.metric("Non-exhaust PM10 (brake+tyre)", fmt_kg(nonexhaust_kg))
+        pm3.metric("Non-exhaust share of total PM10",
+                   f"{nonexhaust_kg/(exhaust_kg+nonexhaust_kg)*100:.0f}%" if (exhaust_kg+nonexhaust_kg) > 0 else "—")
+        pm_split = pd.DataFrame([
+            {"Source": "Exhaust", "kg": exhaust_kg},
+            {"Source": "Brake + tyre (non-exhaust)", "kg": nonexhaust_kg},
+        ])
+        chart_switcher(pm_split.round(2), x="Source", y="kg", key="pe_pm_split",
+                       kinds=("Pie", "Bar", "Table"), default="Pie",
+                       title="PM10 by source", y_label="kg", height=300)
+
 # ════════════════════════════════════════════════════════
 # MODULE 4 — BUS EFFICIENCY
 # ════════════════════════════════════════════════════════
@@ -2217,8 +2269,10 @@ elif selected_module == "What-If":
                            help="Ranked by total CO₂ in the current data.")
         conv_to = st.selectbox("…to fuel", ["CNG", "Electric"])
         euro_target = st.selectbox("Upgrade everything below…",
-                                   ["No change", "Euro IV", "Euro V", "Euro VI"],
-                                   help="Retrofit / replacement scenario for NOx & PM.")
+                                   ["No change", "Euro IV", "Euro V", "Euro VI", "Euro VII"],
+                                   help="Retrofit / replacement scenario for NOx & PM. Euro VII "
+                                        "reflects EU Reg. 2024/1257 — buses aren't type-approved "
+                                        "to it yet, so treat this as a forward-looking scenario.")
     with w2:
         speed_gain = st.slider("Average speed improvement (km/h)", 0, 15, 0,
                                help="Bus priority lanes / signal priority. Affects "
@@ -2242,9 +2296,8 @@ elif selected_module == "What-If":
                 # (no Electric Mini factor exists — modelled as the nearest class)
             changed |= m
         if euro_target != "No change":
-            order = {"Euro II": 2, "Euro III": 3, "Euro IV": 4, "Euro V": 5, "Euro VI": 6}
-            tgt = order[euro_target]
-            m = sim["Euro_Standard"].map(order).fillna(3) < tgt
+            tgt = EURO_ORDER[euro_target]
+            m = sim["Euro_Standard"].map(EURO_ORDER).fillna(3) < tgt
             sim.loc[m, "Euro_Standard"] = euro_target
             changed |= m
         if speed_gain > 0:
@@ -2411,8 +2464,11 @@ elif selected_module == "Formula Explainer":
     st.markdown("## 🧮 Formula Explainer")
     st.markdown(
         f'<div class="banner">Pick any trip below and this walks through every multiplier and addend the '
-        f'<strong>{methodology}</strong> engine applies to it, in order, with your data\'s actual numbers '
-        f'substituted in — so the final kg CO₂ figure isn\'t a black box.</div>',
+        f'engine applies to it, in order, with your data\'s actual numbers substituted in — so the final kg CO₂ '
+        f'figure isn\'t a black box. High Capacity/Midi Diesel or CNG buses use the real EMEP/EEA Guidebook '
+        f'speed-emission curve when one is available for that Euro class (in which case the '
+        f'<strong>{methodology}</strong> selector doesn\'t change the result — the real curve is used regardless); '
+        f'everything else uses the simplified fallback formula shown below.</div>',
         unsafe_allow_html=True)
 
     ec1, ec2, ec3 = st.columns(3)
@@ -2455,17 +2511,90 @@ elif selected_module == "Formula Explainer":
     passenger_km = ridership * trip_km            # total passenger-km that day
     load_c       = _em._load_corr(pax_per_trip, capacity)
 
+    _copert_mj = _em.copert_ef(bus_cat, fuel, "EC", euro, speed)
+    _using_copert = _copert_mj is not None
+
     if fuel == "Electric":
-        kwh_per_km = float(fuel_profile.get("kwh_per_km", 1.5))
+        kwh_per_km = (_copert_mj / 3.6) if _using_copert else float(fuel_profile.get("kwh_per_km", 1.5))
         st.markdown('<div class="sec-label">Step 1 — Electric buses use Scope 2 grid intensity, not combustion factors</div>', unsafe_allow_html=True)
         st.latex(r"CO_2\,(kg) = \text{kWh/km} \times \text{distance} \times \text{Grid EF}")
-        st.code(f"CO2 = {kwh_per_km} kWh/km × {distance:.1f} km × {_em.GRID_EF_KG_PER_KWH} kg/kWh"
+        st.code(f"CO2 = {kwh_per_km:.3f} kWh/km × {distance:.1f} km × {_em.GRID_EF_KG_PER_KWH} kg/kWh"
                 f" = {kwh_per_km*distance*_em.GRID_EF_KG_PER_KWH:.3f} kg",
                 language=None)
+        if _using_copert:
+            st.markdown(
+                '<div class="tip">The kWh/km figure comes from the real EMEP/EEA Guidebook 2023 (Update 2025) '
+                'energy-consumption curve for buses (Appendix 4), evaluated at this trip\'s actual speed — not '
+                'an assumed constant.</div>', unsafe_allow_html=True)
         st.markdown(
             f'<div class="tip">Nigeria grid emission factor of <strong>{_em.GRID_EF_KG_PER_KWH} kg CO₂e/kWh</strong> '
             f'is IEA 2023\'s regional estimate — applied because the bus itself has zero tailpipe emissions, '
             f'but the electricity that charged it didn\'t come from nowhere.</div>', unsafe_allow_html=True)
+    elif _using_copert:
+        st.markdown(
+            '<div class="banner">This trip\'s category and fuel are covered by the real EMEP/EEA Guidebook 2023 '
+            '(Update 2025) speed-emission curve for buses (COPERT 5.9, Appendix 4) — so the console uses that '
+            'directly instead of the simplified fallback formula. Two things follow from using the real curve: '
+            'no engine-model correction (the Guidebook\'s per-Euro-class curve already reflects typical engine '
+            'behaviour for that class) and no cold-start penalty (COPERT itself does not model cold start for '
+            'buses/heavy-duty vehicles — only for cars and light commercial vehicles).</div>',
+            unsafe_allow_html=True)
+
+        ef_curve = _copert_mj * _em.FUEL_CO2_PER_MJ.get(fuel, 0.0)
+        st.markdown('<div class="sec-label">Step 1 — Real Guidebook speed-emission curve</div>', unsafe_allow_html=True)
+        st.latex(r"EC(V) = \frac{\alpha V^2 + \beta V + \gamma + \delta/V}{\epsilon V^2 + \zeta V + \eta} \times (1-RF)")
+        st.code(f"EC({speed:.0f} km/h) = {_copert_mj:.4f} MJ/km   [{bus_cat} / {fuel} / {euro}, EMEP/EEA Guidebook Appendix 4]\n"
+                f"EF_CO2 = EC × {_em.FUEL_CO2_PER_MJ.get(fuel,0):.1f} g CO2/MJ ({fuel}, IPCC 2006 Vol.2 Table 1.4) "
+                f"= {ef_curve:.1f} g/km", language=None)
+
+        st.markdown('<div class="sec-label">Step 2 — Vehicle age deterioration</div>', unsafe_allow_html=True)
+        st.latex(r"EF_1 = EF_{CO2} \times (1 + 0.004 \times \text{age\_years})")
+        st.code(f"EF_1 = {ef_curve:.1f} × (1 + 0.004 × {age}) = {ef_curve:.1f} × {age_co2:.3f} = {ef_curve*age_co2:.1f} g/km", language=None)
+        st.markdown(f'<div class="tip">The Guidebook curve represents a fleet-average for that Euro class — this '
+                    f'+0.4%/year term is an additional engineering estimate for wear beyond that average, not a '
+                    f'COPERT rule (documented as such in the engine source).</div>', unsafe_allow_html=True)
+
+        hot_g = ef_curve * age_co2 * distance
+        st.markdown('<div class="sec-label">Step 3 — Hot running over the route (no cold-start term)</div>', unsafe_allow_html=True)
+        st.latex(r"E_{hot} = EF_1 \times \text{distance}")
+        st.code(f"E_hot = {ef_curve*age_co2:.1f} g/km × {distance:.1f} km = {hot_g:.0f} g", language=None)
+
+        idle_min = float(trip.get("Idle_Minutes", _em.DEFAULT_IDLE_MINUTES))
+        idle_ef  = _em.IDLING_EF.get(bus_cat, {}).get(fuel, {}).get("CO2", 0.0)
+        idle_g   = idle_ef * idle_min
+        st.markdown('<div class="sec-label">Step 4 — Idling</div>', unsafe_allow_html=True)
+        st.latex(r"E_{idle} = EF_{idle} \times \text{idle\_minutes}")
+        st.code(f"E_idle = {idle_ef:.1f} g/min × {idle_min:.0f} min = {idle_g:.0f} g", language=None)
+
+        ac_extra = (hot_g + idle_g) * _em.AC_UPLIFT_CO2 if ac_on else 0.0
+        st.markdown('<div class="sec-label">Step 5 — A/C uplift</div>', unsafe_allow_html=True)
+        st.latex(r"E_{ac} = (E_{hot} + E_{idle}) \times 0.08 \quad \text{(if A/C on)}")
+        st.code(f"A/C status: {'ON' if ac_on else 'OFF'}  →  E_ac = "
+                f"{(f'{ac_extra:.0f} g') if ac_on else '0 g (not applied)'}", language=None)
+
+        st.markdown('<div class="sec-label">Step 6 — Load factor correction</div>', unsafe_allow_html=True)
+        st.latex(r"\text{LoadCorr} = 1 + \left(\min\!\left(\tfrac{\text{pax on board}}{\text{capacity}}, 1.2\right) - 0.5\right) \times 0.08")
+        st.code(f"pax on board = {ridership} riders ÷ {num_trips} trips = {pax_per_trip:.0f}\n"
+                f"pax/capacity = {pax_per_trip:.0f}/{capacity} = {pax_per_trip/capacity:.2f}\n"
+                f"LoadCorr = 1 + ({min(pax_per_trip/capacity,1.2):.2f} - 0.5) × 0.08 = {load_c:.4f}", language=None)
+        st.markdown('<div class="tip">Guidebook coefficients above are at Load=50% — this correction adjusts '
+                    'around that same reference point, so the two compose correctly.</div>', unsafe_allow_html=True)
+
+        total_g = (hot_g + idle_g + ac_extra) * load_c
+        st.markdown('<div class="sec-label">Step 7 — Total, and per-passenger figure</div>', unsafe_allow_html=True)
+        st.latex(r"Total = (E_{hot} + E_{idle} + E_{ac}) \times \text{LoadCorr}")
+        st.code(f"Total = ({hot_g:.0f} + {idle_g:.0f} + {ac_extra:.0f}) × {load_c:.4f}"
+                f" = {total_g:.0f} g = {total_g/1000:.3f} kg", language=None)
+        if is_revenue:
+            gpkm = total_g / passenger_km if passenger_km else 0.0
+            st.latex(r"CO_2\,(g/pkm) = \frac{Total\,(g)}{\text{passenger-km}}")
+            st.code(f"passenger_km = {ridership} riders × {trip_km:.1f} km/trip = {passenger_km:,.0f} pkm\n"
+                    f"CO2_g_pkm = {total_g:.0f} g ÷ {passenger_km:,.0f} pkm = {gpkm:.2f} g/pkm", language=None)
+            flag_thresholds = {"High Capacity": (30,55), "Midi": (45,75), "Mini": (60,95)}.get(bus_cat, (40,70))
+            st.markdown(gauge_svg(gpkm, flag_thresholds[0], flag_thresholds[1]), unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="tip">This wasn\'t a revenue trip (Revenue_Trip = 0/False), so it doesn\'t '
+                        'carry a g/pkm compliance figure.</div>', unsafe_allow_html=True)
     else:
         ef_after_engine = base_co2 * eng_corr
         ef_after_age    = ef_after_engine * age_co2
@@ -2562,15 +2691,43 @@ elif selected_module == "Formula Explainer":
 
     with st.expander("📚 Where every constant comes from"):
         st.markdown("""
-- **Base factors** — IPCC 2006 Tier 2 + COPERT V West-Africa fleet calibration, Euro III reference.
+- **Real speed-emission curves** (High Capacity/Midi, Diesel/CNG, where covered) — EMEP/EEA Air Pollutant
+  Emission Inventory Guidebook 2023, Update 2025 (COPERT 5.9), Chapter 1.A.3.b.i-iv "Road transport",
+  Appendix 4 "Emission Factors" (Nov 2025). Real per-Euro-class coefficients for the generic equation
+  EF(V) = (αV²+βV+γ+δ/V) / (εV²+ζV+η) × (1-RF), Slope=0%/Load=50%. "High Capacity" maps to COPERT's
+  "Urban Buses Articulated >18t" segment, "Midi" to "Urban Buses Standard 15-18t" — COPERT has no bus
+  segment below 15t, so Mini buses always use the simplified factors below instead. CO₂ for these
+  combinations comes from the Guidebook's energy-consumption curve (pollutant "EC", MJ/km) converted via
+  IPCC 2006 Guidelines Vol.2 Table 1.4 (Diesel 74.1 g CO2/MJ, CNG 56.1 g CO2/MJ) — not from the flat base
+  factor below. When this curve is used, the Method selector (COPERT/Hybrid/IPCC) has no effect on the
+  result, since the real curve already captures the correct speed dependency regardless of which
+  simplified approximation would otherwise be chosen.
+- **Base factors** (fallback, used when no real curve is available) — IPCC 2006 Tier 2 + COPERT V
+  West-Africa fleet calibration, Euro III reference.
 - **Euro class multipliers** (NOx/PM only) — EEA COPERT V Technical Report No 12, Table 4.1. CO₂ is *not*
   adjusted by Euro class — after-treatment changes pollutant chemistry, not carbon output.
 - **Age deterioration** — COPERT degradation model: +0.4%/yr CO₂, +1.5%/yr NOx (diesel/petrol), +2.0%/yr PM.
-- **Cold start** — EMEP/EEA Guidebook Table 3-27, applied to the first 5km of each trip, scaled by trips/day.
+  Applied on top of the real curve too, where used — it represents fleet wear beyond a Euro class's
+  average, which the Guidebook curve itself doesn't capture.
+- **Cold start** (fallback path only) — EMEP/EEA Guidebook Table 3-27, applied to the first 5km of each
+  trip, scaled by trips/day. Buses/heavy-duty vehicles get NO cold-start modelling in real COPERT
+  (Guidebook Table 3-36) — cold start is skipped entirely when the real speed-emission curve is used.
 - **A/C uplift** — CARB 2021, 8% CO₂ uplift for heavy-duty buses in warm climates, applied per-trip only when
   `AC_Status` is true for that row (not assumed always-on).
 - **Electric grid factor** — IEA 2023 regional estimate for Nigeria: 0.46 kg CO₂e/kWh.
-- **Speed-correction curves** (COPERT/Hybrid NOx & PM) — fitted functions approximating COPERT V speed bands.
+- **Speed-correction curves** (fallback path only) — simplified fitted functions approximating COPERT-style
+  speed bands, used only for Mini buses and fuel/Euro combinations the real Guidebook curve doesn't cover.
+- **Euro VII** — EU Regulation 2024/1257 (adopted Apr 2024). Bus/truck type-approval phases in from
+  roughly 2028-29; no vehicle has been certified yet, so this is a forward-looking engineering
+  estimate, not a certified figure.
+- **Real-world NOx gap** (optional sidebar toggle) — EEA "Explaining road transport emissions" (2019)
+  and ICCT real-world/type-approval NOx research. Euro V had no real-driving-emissions test
+  requirement; Euro VI's RDE testing narrows the gap considerably. Published literature central
+  estimates, not a measured figure for any specific vehicle.
+- **Non-exhaust PM** (brake + tyre wear) — EEA "Non-exhaust road traffic emissions" (2019) and OECD
+  "Non-exhaust Particulate Emissions from Road Transport" (2020). Not currently regulated for buses
+  under any standard, including Euro VII (which only limits brake particulates for cars/vans so far)
+  — tracked here because it's now often the larger share of a vehicle's real PM2.5/PM10.
         """)
 
 # ════════════════════════════════════════════════════════
@@ -2635,7 +2792,8 @@ elif selected_module == "Deep Search":
     SHOW = ["Date","Bus_ID","Route_Name","Operator","Bus_Category","Fuel_Type",
             "Euro_Standard","Vehicle_Age_years","AC_Status","Engine_Model",
             "Num_Trips_Today","Route_Distance_km","Avg_Speed_kmh","Ridership",
-            "load_factor","CO2_kg","NOx_kg","PM_kg","CO2_g_pkm","Compliance",
+            "load_factor","CO2_kg","NOx_kg","NOx_realworld_kg","PM_kg",
+            "PM10_nonexhaust_g","PM25_nonexhaust_g","CO2_g_pkm","Compliance",
             "Category_Unmapped","Fuel_Unmapped"]
     show_cols = [c for c in SHOW if c in out.columns]
 

@@ -21,6 +21,8 @@ seconds on ~20k rows), all written to be explainable:
 import numpy as np
 import pandas as pd
 
+from emissions_engine import EURO_ORDER
+
 
 # ══════════════════════════════════════════════════════════════
 # 1. ANOMALY DETECTION — "Fleet Health"
@@ -154,7 +156,7 @@ def forecast_daily(daily: pd.DataFrame, value_col: str,
 # ══════════════════════════════════════════════════════════════
 # 3. COMPLIANCE RISK — which buses will breach next?
 # ══════════════════════════════════════════════════════════════
-_EURO_ORD = {"Euro II": 2, "Euro III": 3, "Euro IV": 4, "Euro V": 5, "Euro VI": 6}
+_EURO_ORD = EURO_ORDER  # shared canonical ordering, incl. Euro VII — see emissions_engine.py
 
 
 def compliance_risk(df: pd.DataFrame) -> pd.DataFrame:

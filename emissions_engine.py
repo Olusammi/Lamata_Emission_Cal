@@ -137,8 +137,21 @@ EURO_FACTORS = {
     "Euro IV":  {"NOx": 0.55, "PM": 0.45},
     "Euro V":   {"NOx": 0.30, "PM": 0.25},
     "Euro VI":  {"NOx": 0.05, "PM": 0.04},
+    # Euro VII — EU Regulation 2024/1257 (adopted 29 Apr 2024). Type-approval
+    # for buses/heavy trucks (M3/N3) phases in ~36 months after light-duty,
+    # i.e. new type approvals from roughly 2028-29. Lab-cycle limits sit
+    # close to Euro VI, but the regulation's real gain is much broader
+    # real-driving-conditions testing and far longer durability requirements
+    # (up to 875,000 km / 15 years for M3/N3, vs shorter Euro VI windows) —
+    # intended to close most of the real-world NOx gap Euro VI still shows
+    # (see REAL_WORLD_NOX_FACTOR below). Modelled here as a modest further
+    # cut on top of Euro VI; this is an engineering estimate for planning
+    # purposes, not a certified figure — no bus/truck has been type-approved
+    # to Euro VII yet at time of writing.
+    "Euro VII": {"NOx": 0.04, "PM": 0.03},
 }
 DEFAULT_EURO = "Euro III"
+EURO_ORDER = {"Euro II": 2, "Euro III": 3, "Euro IV": 4, "Euro V": 5, "Euro VI": 6, "Euro VII": 7}
 
 # ══════════════════════════════════════════════════════════════
 # SECTION 3 — ENGINE MODEL CO₂ CORRECTION
@@ -219,6 +232,196 @@ SPD_FN = {"CO2": _spd_co2, "NOx": _spd_nox, "PM": _spd_pm}
 
 
 # ══════════════════════════════════════════════════════════════
+# SECTION 5B — REAL COPERT SPEED-EMISSION CURVES  (buses)
+# Source: EMEP/EEA Air Pollutant Emission Inventory Guidebook 2023,
+# Update 2025 (COPERT 5.9), Chapter 1.A.3.b.i-iv "Road transport",
+# Appendix 4 "Emission Factors" (Nov 2025 edition), sheet
+# HOT_EMISSIONS_PARAMETERS. This replaces the single normalised
+# curve above with REAL per-Euro-class curves, for the vehicle/fuel
+# combinations the Guidebook actually covers as buses.
+#
+# Generic equation (Guidebook §3.4.2, Eq. 25):
+#   EF(V) = (α·V² + β·V + γ + δ/V) / (ε·V² + ζ·V + η) × (1 - RF)
+# Coefficients are for Slope=0%, Load=50% (matches this engine's own
+# _load_corr() reference point, so the two compose correctly).
+#
+# Segment mapping (by capacity, the closest physical match):
+#   "High Capacity" (150 seats+standing) → COPERT "Urban Buses
+#       Articulated >18t"
+#   "Midi" (80)                          → COPERT "Urban Buses
+#       Standard 15-18t"
+#   "Mini" (18) has no COPERT bus segment at all (COPERT's smallest
+#       bus class is 15t+) — Mini stays on the simplified
+#       BASE_FACTORS/EURO_FACTORS system below, by design.
+#
+# 'Euro VI' here uses the Guidebook's 'Euro VI D/E' coefficient set
+# (the more current implementation step); 'Euro VI A/B/C' data exists
+# in the source but isn't used. CNG coverage in the source itself is
+# incomplete — full Euro I-VII curves only exist for Diesel; CNG has
+# a generic (size-unspecified) curve for EEV/Euro I-III and separate
+# size-specific curves for Euro VI D/E and Euro VII only. Where the
+# guidebook itself has no coefficient (e.g. CNG Euro IV/V at either
+# size), lookup falls through to the simplified system rather than
+# guessing.
+#
+# Two real-COPERT facts this exposes that the simplified system above
+# does NOT reflect:
+#   1. Heavy-duty vehicles/buses get NO cold-start over-emission
+#      modelling in COPERT (Guidebook Table 3-36, method "B1" =
+#      "No Cold Start Overemission Calculations" — cold start is only
+#      modelled for passenger cars/LCVs). When a real curve is used
+#      below, cold start is skipped for that pollutant, matching
+#      COPERT; idling and A/C uplift are still added on top, since
+#      neither is part of the Guidebook's speed curve.
+#   2. CO2 for heavy-duty vehicles isn't itself in this equation —
+#      it's derived from energy consumption (pollutant "EC", MJ/km),
+#      which IS speed-dependent, converted to CO2 via a fuel carbon
+#      factor (IPCC 2006 Guidelines, Vol. 2, Table 1.4: Diesel/Gas
+#      oil 74.1 g CO2/MJ, Natural gas/CNG 56.1 g CO2/MJ).
+# ══════════════════════════════════════════════════════════════
+FUEL_CO2_PER_MJ = {"Diesel": 74.1, "CNG": 56.1}  # IPCC 2006 Guidelines Vol.2 Table 1.4
+_COPERT_CAT_KEY = {"High Capacity": "High_Capacity", "Midi": "Midi"}
+
+# Tuple layout: (alpha, beta, gamma, delta, epsilon, zeta, eta, reduction_factor, min_speed, max_speed)
+COPERT_BUS_COEFFS = {}
+
+COPERT_BUS_COEFFS[('High_Capacity', 'Diesel', 'NOx')] = {
+    'Euro I': (0.000195532436686655, 0.109812151361716, 4.66071689383795, 19.2667704614656, 9.22227500103027e-05, 0.0144651402712633, 0.224055530487258, 0, 11, 86),
+    'Euro II': (-5.50851830714555e-05, 0.0254129577512646, 4.21292716596206, 33.3089748069781, -6.84759683482164e-06, 0.00717756449156061, 0.274777307792719, 0, 11, 86),
+    'Euro III': (0.000763411676524867, 0.307437823357835, 4.66815627689041, -15.9637226340815, 0.00051512586531376, 0.0330068264882036, -0.123742694321276, 0, 11, 86),
+    'Euro IV': (-0.000445085100891601, 0.0275476837985451, 1.24717347448867, -10.7885397391889, -0.00012413777027339, 0.0124143199514201, -0.0763460631567738, 0, 11, 86),
+    'Euro V': (0.000448936394674791, -0.0698232216664305, 3.23351099234636, 3.50900649838609, -0.000108430347451541, 0.0113966775508668, 0.0731766087727267, 0, 5, 85),
+    'Euro VI': (-7.289143631615881, 640.0828583578445, 13785.15089625432, -109902.1922219768, -1.475481308546263, 135.6939022337642, -837.4527868155939, 0.8552155015111091, 5, 70),
+    'Euro VII': (-7.289143631615881, 640.0828583578445, 13785.15089625432, -109902.1922219768, -1.475481308546263, 135.6939022337642, -837.4527868155939, 0.9827968672469168, 5, 70),
+}
+COPERT_BUS_COEFFS[('High_Capacity', 'Diesel', 'PM')] = {
+    'Euro I': (0.000465634661534354, 0.00298331462391513, -0.322790517321939, 4.25460766749388, 0.00241121321194577, -0.0703513062480048, 0.667429645241618, 0, 11, 86),
+    'Euro II': (1.77955694497166e-06, 0.0104282889182441, 0.858929290049523, 3.44669292104467, -0.000455156457185917, 0.143189000721325, 1.45323626865616, 0, 11, 86),
+    'Euro III': (0.000501047237555967, -0.0136648092753171, 0.176363500118427, 5.46320076057103, 0.00422916068072395, -0.154175794944945, 2.7386273940053, 0, 11, 86),
+    'Euro IV': (9.41099911235173e-19, 1.47112469597986e-16, 0.528508623581499, 3.24860954892122e-14, -0.00116418020721057, 0.280386945749681, 2.48632108508629, 0, 11, 86),
+    'Euro V': (0.0569254928417283, 4.86164520570646, 1.44286363604206, -0.70858277536769, 0.0103132948942481, 0.147261195595975, -0.0437043211566113, 0.996296324294868, 5, 85),
+    'Euro VI': (0.0451235940688133, 2.3036639058463, -4.06494004790822, 5.87148659939171, 0.00678893767998712, 0.0337400558521148, 8.1336343673265e-14, 0.999606579865608, 5, 70),
+    'Euro VII': (0.0451235940688133, 2.3036639058463, -4.06494004790822, 5.87148659939171, 0.00678893767998712, 0.0337400558521148, 8.1336343673265e-14, 0.9998348925337633, 5, 70),
+}
+COPERT_BUS_COEFFS[('High_Capacity', 'Diesel', 'EC')] = {
+    'Euro I': (0.00750242313909769, 0.708124249106715, 0.506862042551121, -15.0427359906727, 0.00131971637286938, 0.0234671625116625, -0.11529326762189, 0, 11, 86),
+    'Euro II': (-0.00103051312432459, 0.0755560339791729, 1.73770925901112, -21.255387898077, -0.000120348024664702, 0.0119465060453488, -0.0953957881013158, 0, 11, 86),
+    'Euro III': (0.0202435674402851, 1.51420941493468, 5.83994344444744, 5.07864004860022, 0.00310367991886572, 0.0508529615404832, 0.049615103832913, 0, 11, 86),
+    'Euro IV': (-0.00210744909983318, 0.111452734374685, 7.17599504640295, -11.0268007288627, -0.000248717473485706, 0.0212238398165323, 0.123715388381394, 0, 11, 86),
+    'Euro V': (0.0569254928417283, 4.86164520570646, 1.44286363604206, -0.70858277536769, 0.0103132948942481, 0.147261195595975, -0.0437043211566113, 0, 5, 85),
+    'Euro VI': (-7.289143631615881, 640.0828583578445, 13785.15089625432, -109902.1922219768, -1.475481308546263, 135.6939022337642, -837.4527868155939, -0.29737445741800195, 5, 70),
+    'Euro VII': (-7.289143631615881, 640.0828583578445, 13785.15089625432, -109902.1922219768, -1.475481308546263, 135.6939022337642, -837.4527868155939, -0.29737445741800195, 5, 70),
+}
+COPERT_BUS_COEFFS[('Midi', 'Diesel', 'NOx')] = {
+    'Euro I': (0.00204764855616657, 0.520675761907294, 3.51293072156612, -32.7300900799171, 0.000807873517542598, 0.0583792740097243, -0.33773418070682, 0, 11, 86),
+    'Euro II': (0.00412402434651283, 0.530618573879136, 12.5540275765813, 18.0130664324151, 0.00106836919811916, 0.0682479516111295, 0.27296756282642, 0, 11, 86),
+    'Euro III': (0.000962853827383582, 0.43283442172761, 7.09802501183916, 2.96198426932413, 0.000927291647143319, 0.0590819238383194, -0.109147145287551, 0, 11, 86),
+    'Euro IV': (5.62810387454345e-05, 0.039286305754102, 1.96671452388567, 9.88657960075961, 7.77974796392815e-05, 0.012505766046485, 0.20147566016008, 0, 11, 86),
+    'Euro V': (0.000353348102039702, -0.0561829022680765, 2.65091227404064, 7.87360468889005, -6.23807914060858e-05, 0.0065929959703913, 0.13094553823857, 0, 5, 85),
+    'Euro VI': (181.6450509528872, 11196.70591002358, -86923.50339496524, -178082.241348017, 268.4244141309995, 5622.852151466637, -67105.02513131434, 0, 5, 70),
+    'Euro VII': (181.6450509528872, 11196.70591002358, -86923.50339496524, -178082.241348017, 268.4244141309995, 5622.852151466637, -67105.02513131434, 0.881412468953943, 5, 70),
+}
+COPERT_BUS_COEFFS[('Midi', 'Diesel', 'PM')] = {
+    'Euro I': (0.00054623434303941, -0.0100947610770257, 1.55050653202624, 1.83664463745264, 0.00215546731591781, 0.0511546546228944, 1.53598784038669, 0, 11, 86),
+    'Euro II': (1.86821137266366e-05, 0.00650439682870461, 0.563592329320611, 2.81835485261303, -0.000451049200579574, 0.133144751468373, 1.26448085671401, 0, 11, 86),
+    'Euro III': (-9.49544098476157e-06, 0.00640497538366598, 0.740307998518696, 3.42256439460857, -0.000527747624495991, 0.163394606462353, 1.53809792008495, 0, 11, 86),
+    'Euro IV': (1.20775820717059e-15, 1.65813412025685e-14, 0.895448931282914, 2.37628806159087e-11, -0.00297923000651941, 0.573992238313472, 5.95453980806337, 0, 11, 86),
+    'Euro V': (-0.000234263438032306, -0.010102311471057, 3.44647787320417, 4.53931683520842, -8.27687128466504e-05, 0.00655835406931008, 0.151315345197098, 0.996296324294868, 5, 85),
+    'Euro VI': (-0.000313881923547988, -0.0145484315009182, 5.33927720306299, 4.32988739703353, -0.000119639044053958, 0.0102176505703206, 0.211097947587396, 0.999606579865608, 5, 70),
+    'Euro VII': (-0.000313881923547988, -0.0145484315009182, 5.33927720306299, 4.32988739703353, -0.000119639044053958, 0.0102176505703206, 0.211097947587396, 0.9998348925337633, 5, 70),
+}
+COPERT_BUS_COEFFS[('Midi', 'Diesel', 'EC')] = {
+    'Euro I': (-9.69247948896325e-05, 0.0285033921486055, 2.59488151004893, 9.20471392321822, -3.04306920399323e-05, 0.00785900076582361, 0.0895249413877887, 0, 11, 86),
+    'Euro II': (-0.000210893799545693, 0.0309629204113653, 2.22901448191258, 4.49443122020401, -4.65895127733592e-05, 0.00806060580238086, 0.0612942559589402, 0, 11, 86),
+    'Euro III': (-0.000240994412232972, 0.0338229795225614, 2.44327779207519, 4.65941312172263, -5.04965028853241e-05, 0.00852073434119492, 0.061276675893548, 0, 11, 86),
+    'Euro IV': (0.0023623927278234, -0.0144788518494557, -0.427170645167993, 7.15496310200787, 0.000327568250882569, -0.00777932579733725, 0.0660570813937103, 0, 11, 86),
+    'Euro V': (-0.000234263438032306, -0.010102311471057, 3.44647787320417, 4.53931683520842, -8.27687128466504e-05, 0.00655835406931008, 0.151315345197098, 0, 5, 85),
+    'Euro VI': (-7.289143631615881, 640.0828583578445, 13785.15089625432, -109902.1922219768, -1.475481308546263, 135.6939022337642, -837.4527868155939, 0, 5, 70),
+    'Euro VII': (-7.289143631615881, 640.0828583578445, 13785.15089625432, -109902.1922219768, -1.475481308546263, 135.6939022337642, -837.4527868155939, 0, 5, 70),
+}
+COPERT_BUS_COEFFS[('High_Capacity', 'CNG', 'NOx')] = {
+    'Euro VI': (0.71534510928232, -73.5061715194338, 5434.84824992738, 0, 0, 116.814029314938, 3550.30720016334, 0, 5, 85),
+    'Euro VII': (0.71534510928232, -73.5061715194338, 5434.84824992738, 0, 0, 116.814029314938, 3550.30720016334, 0.15, 5, 85),
+}
+COPERT_BUS_COEFFS[('High_Capacity', 'CNG', 'PM')] = {
+    'Euro VI': (0.0444933787504169, -4.57198209232491, 338.038770000937, 0, 0, 538.892640609864, 16378.5858695107, 0, 5, 85),
+    'Euro VII': (0.0444933787504169, -4.57198209232491, 338.038770000937, 0, 0, 538.892640609864, 16378.5858695107, 0.3, 5, 85),
+}
+COPERT_BUS_COEFFS[('High_Capacity', 'CNG', 'EC')] = {
+    'Euro VI': (1984.1717701363, -203886.034517985, 15074781.6074066, 0, 0, 9019.17653416815, 274118.245438158, 0, 5, 85),
+    'Euro VII': (1984.1717701363, -203886.034517985, 15074781.6074066, 0, 0, 9019.17653416815, 274118.245438158, 0, 5, 85),
+}
+COPERT_BUS_COEFFS[('Midi', 'CNG', 'NOx')] = {
+    'Euro VI': (1.454364, 12.28338, -3572.43, 81982.7, 16.63304, -871.796, 13263.24, 0, 5, 85),
+    'Euro VII': (1.454364, 12.28338, -3572.43, 81982.7, 16.63304, -871.796, 13263.24, 0.15, 5, 85),
+}
+COPERT_BUS_COEFFS[('Midi', 'CNG', 'PM')] = {
+    'Euro VI': (0.00668361463754694, -0.905301305406419, 43.27101279318, 0, 0, 0, 3829.84944299177, 0, 5, 85),
+    'Euro VII': (0.00668361463754694, -0.905301305406419, 43.27101279318, 0, 0, 0, 3829.84944299177, 0.3, 5, 85),
+}
+COPERT_BUS_COEFFS[('Midi', 'CNG', 'EC')] = {
+    'Euro VI': (2.902952, -7.92778, -948.88, 8227.055, 0.309673, -7.13133, 43.29193, 0, 5, 85),
+    'Euro VII': (2.902952, -7.92778, -948.88, 8227.055, 0.309673, -7.13133, 43.29193, 0, 5, 85),
+}
+
+# CNG generic (size-unspecified) curve — the only coverage for EEV/Euro I-III
+COPERT_BUS_COEFFS_CNG_GENERIC = {
+    "NOx": {
+        'Euro I': (0, 0, 16.5, 0, 0, 0, 1, 0, 6, 75),
+        'Euro II': (0, 0, 15, 0, 0, 0, 1, 0, 6, 75),
+        'Euro III': (0, 0, 10, 0, 0, 0, 1, 0, 6, 75),
+        'EEV': (0.00335581295550362, 1.01967944213972, 1.53109837593671, -59.7733124681003, 0.00594115413805745, 0.222318774051069, -1.86161421670294, 0, 11, 86),
+    },
+    "PM": {
+        'Euro I': (0, 0, 0.02, 0, 0, 0, 1, 0, 6, 75),
+        'Euro II': (0, 0, 0.01, 0, 0, 0, 1, 0, 6, 75),
+        'Euro III': (0, 0, 0.01, 0, 0, 0, 1, 0, 6, 75),
+        'EEV': (2.99508607917677e-05, 0.00432140568014104, 1.04889571499637, 4.09826315848808, -0.011483064903324, 3.52203270045111, 54.1727457325872, 0, 11, 86),
+    },
+    "EC": {
+        'Euro I': (0, 0, 555, 0, 0, 0, 20.8333333333333, 0, 6, 75),
+        'Euro II': (0, 0, 515, 0, 0, 0, 20.8333333333333, 0, 6, 75),
+        'Euro III': (0, 0, 455, 0, 0, 0, 20.8333333333333, 0, 6, 75),
+        'EEV': (-0.000186970637762985, 0.0687149794113224, 5.7022140873118, 19.4144566985669, -4.883540497789e-05, 0.0133456134788077, 0.153469463592991, 0, 11, 86),
+    },
+}
+
+# Battery electric buses: a single generic curve (drivetrain has no combustion
+# Euro class, so the Guidebook reuses one EC curve regardless of "Euro" label).
+COPERT_BUS_COEFFS_ELECTRIC_EC = (0.018504, 1.4e-08, 6.914233, 1.538516, 9.64e-06, 0.000279, 0.000115, 0.9964, 5, 85)
+
+
+def _eval_copert_curve(coeffs, speed_kmh):
+    a, b, g, d, e, z, h, rf, min_v, max_v = coeffs
+    v = max(min_v, min(float(speed_kmh or REF_SPEED_KMH), max_v))
+    denom = e * v * v + z * v + h
+    if denom == 0:
+        return None
+    ef = (a * v * v + b * v + g + d / v) / denom * (1.0 - rf)
+    return max(0.0, ef)
+
+
+def copert_ef(bus_cat, fuel, pollutant, euro, speed_kmh):
+    """Real Guidebook speed-emission factor in g/km (NOx, PM) or MJ/km
+    (EC), or None if this combination isn't covered by the source data
+    — callers should fall back to the simplified BASE_FACTORS system."""
+    if fuel == "Electric":
+        return _eval_copert_curve(COPERT_BUS_COEFFS_ELECTRIC_EC, speed_kmh) if pollutant == "EC" else 0.0
+    cat_key = _COPERT_CAT_KEY.get(bus_cat)
+    if cat_key is None:
+        return None
+    coeffs = None
+    table = COPERT_BUS_COEFFS.get((cat_key, fuel, pollutant))
+    if table and euro in table:
+        coeffs = table[euro]
+    elif fuel == "CNG":
+        coeffs = COPERT_BUS_COEFFS_CNG_GENERIC.get(pollutant, {}).get(euro)
+    if coeffs is None:
+        return None
+    return _eval_copert_curve(coeffs, speed_kmh)
+
+
+# ══════════════════════════════════════════════════════════════
 # SECTION 6 — COLD START  (temperature-aware)
 # A cold engine over-emits for the first few km. Buses running
 # trips back-to-back stay warm, so we count COLD STARTS PER DAY
@@ -290,6 +493,103 @@ def _load_corr(pax_on_board, capacity):
 
 
 # ══════════════════════════════════════════════════════════════
+# SECTION 9B — REAL-WORLD NOx GAP  (diesel, Euro V/VI/VII)
+# Type-approval (lab-cycle) NOx is not what these engines emit in
+# real urban driving — extensively documented since "dieselgate":
+#   EEA, "Explaining road transport emissions" (2019)
+#   ICCT working papers on real-world/type-approval NOx ratios
+#     for heavy-duty diesel (2016-2018)
+#
+# Euro V had NO real-driving-emissions (RDE) test requirement at
+# all: independent testing commonly found real-world NOx running
+# 3-4x the type-approval limit for Euro V heavy-duty diesel.
+# Euro VI phased in RDE testing with a legal "conformity factor"
+# (2017+); measured real-world/lab ratios for RDE-tested Euro VI
+# have fallen to roughly 1.1-1.5x, though the earliest Euro VI
+# units (pre-RDE) skew higher.
+# Euro VII broadens real-driving test coverage further still, so
+# the gap is modelled as narrowing again — an engineering estimate,
+# since no Euro VII heavy-duty vehicle has real-world data yet.
+#
+# Only diesel combustion shows this documented gap (it's a NOx
+# after-treatment / driving-condition effect); CNG, electric and
+# biogas are not adjusted.
+#
+# This multiplier is a published-literature CENTRAL ESTIMATE, not a
+# certified per-vehicle figure — treat it as "how much worse should
+# I assume real-world NOx is than the label", not a measured value
+# for any specific bus.
+# ══════════════════════════════════════════════════════════════
+REAL_WORLD_NOX_FACTOR = {
+    "Euro II":  1.0,   # pre-dates modern after-treatment; too little RDE literature to adjust
+    "Euro III": 1.0,
+    "Euro IV":  1.0,
+    "Euro V":   3.5,   # no RDE requirement — largest documented gap
+    "Euro VI":  1.3,   # RDE-tested, conformity-factor regime
+    "Euro VII": 1.05,  # broadened real-driving coverage narrows the gap further (estimate)
+}
+
+
+def real_world_nox_multiplier(euro_standard, fuel_type):
+    """Multiplier on top of the type-approval NOx figure, reflecting
+    the documented real-world/lab gap. Returns 1.0 (no adjustment)
+    for non-diesel fuels or an unrecognised Euro standard."""
+    if fuel_type != "Diesel":
+        return 1.0
+    return REAL_WORLD_NOX_FACTOR.get(euro_standard, 1.0)
+
+
+# ══════════════════════════════════════════════════════════════
+# SECTION 9C — NON-EXHAUST PARTICULATES  (brake + tyre wear)
+# As exhaust PM has fallen with particulate filters, brake and tyre
+# wear are now a major — often the majority — share of a vehicle's
+# real PM2.5/PM10, and NONE of it is captured by the tailpipe
+# figures above.
+#
+# Euro VII (EU Reg. 2024/1257) introduces the first-ever regulatory
+# brake-particle limits — but only for M1/N1 (cars/vans); buses
+# (M3) are not yet limited. That's exactly why tracking it here is
+# useful even without a compliance threshold to check it against.
+#
+# Base factors are representative CENTRAL ESTIMATES (mg per vehicle-km,
+# PM10) from:
+#   EEA, "Non-exhaust road traffic emissions" briefing (2019)
+#   OECD, "Non-exhaust Particulate Emissions from Road Transport" (2020)
+# Real-world values vary roughly 2-3x with brake type (disc vs
+# drum), pad/lining material, tyre compound, and driving style —
+# treat these as indicative, not measured, figures. Regenerative
+# braking (electric/hybrid) is well-documented to cut brake wear by
+# roughly half to two-thirds; it does not reduce tyre wear.
+# ══════════════════════════════════════════════════════════════
+NON_EXHAUST_PM10_MG_PER_KM = {
+    "High Capacity": {"brake": 22.0, "tyre": 32.0},
+    "Midi":          {"brake": 14.0, "tyre": 20.0},
+    "Mini":          {"brake": 7.0,  "tyre": 10.0},
+}
+PM10_TO_PM25_BRAKE = 0.55   # fraction of brake-wear PM10 that is PM2.5 (finer particles)
+PM10_TO_PM25_TYRE = 0.35    # fraction of tyre-wear PM10 that is PM2.5 (coarser particles)
+REGEN_BRAKING_DISCOUNT = 0.6   # electric/hybrid regenerative braking cuts brake wear ~60%
+_DEFAULT_NON_EXHAUST = NON_EXHAUST_PM10_MG_PER_KM["Midi"]
+
+
+def non_exhaust_pm(bus_category, fuel_type, distance_km):
+    """Brake + tyre wear PM for the row's distance — independent of
+    (additive to) the combustion PM figures elsewhere in this file.
+    Returns grams of PM10 and PM2.5."""
+    base = NON_EXHAUST_PM10_MG_PER_KM.get(bus_category, _DEFAULT_NON_EXHAUST)
+    brake_mg_km = base["brake"]
+    if fuel_type in ("Electric", "Hybrid"):
+        brake_mg_km *= (1.0 - REGEN_BRAKING_DISCOUNT)
+    tyre_mg_km = base["tyre"]   # regenerative braking does not reduce tyre wear
+    pm10_mg = (brake_mg_km + tyre_mg_km) * distance_km
+    pm25_mg = (brake_mg_km * PM10_TO_PM25_BRAKE + tyre_mg_km * PM10_TO_PM25_TYRE) * distance_km
+    return {
+        "PM10_nonexhaust_g": round(pm10_mg / 1000.0, 4),
+        "PM25_nonexhaust_g": round(pm25_mg / 1000.0, 4),
+    }
+
+
+# ══════════════════════════════════════════════════════════════
 # SECTION 10 — ROW SEMANTICS SWITCH
 # If your Route_Distance_km column is the length of ONE trip
 # (not the whole day), set this to False — daily km then becomes
@@ -311,7 +611,7 @@ def _derive_day(distance, num_trips, ridership):
 # ══════════════════════════════════════════════════════════════
 # SECTION 11 — MAIN ROW CALCULATOR
 # ══════════════════════════════════════════════════════════════
-def calculate_row(row, methodology, target_pollutants, ambient_c=DEFAULT_AMBIENT_C):
+def calculate_row(row, methodology, target_pollutants, ambient_c=DEFAULT_AMBIENT_C, real_world_nox=False):
     """Compute one bus-day. Returns a pandas Series of results.
 
     Recipe per pollutant:
@@ -321,6 +621,12 @@ def calculate_row(row, methodology, target_pollutants, ambient_c=DEFAULT_AMBIENT
         idle    = idle_EF × idle_minutes
         A/C     = +8 % of (hot + idle) CO₂, if A/C on
         total   = (hot + cold + idle + A/C) × load_correction
+
+    real_world_nox=True additionally reports NOx_realworld_kg/g_km/g_pkm —
+    the type-approval NOx figure above scaled by the documented real-world
+    gap for diesel Euro V/VI/VII (see REAL_WORLD_NOX_FACTOR). The
+    type-approval NOx_* columns are always the primary/legal figure; the
+    real-world columns are an additional estimate, not a replacement.
     """
     # ── 1. Read the row ──
     bus_cat, cat_mapped = normalize_category(row.get("Bus_Category", ""))
@@ -356,43 +662,69 @@ def calculate_row(row, methodology, target_pollutants, ambient_c=DEFAULT_AMBIENT
 
     # ── 3. Electric buses: no tailpipe — grid ("Scope 2") CO₂ only ──
     if fuel == "Electric":
-        kwh_per_km = float(fuel_profile.get("kwh_per_km", 1.5))
+        _copert_mj = copert_ef(bus_cat, fuel, "EC", euro, speed)
+        kwh_per_km = (_copert_mj / 3.6) if _copert_mj is not None else float(fuel_profile.get("kwh_per_km", 1.5))
         if ac_on:
             kwh_per_km *= (1.0 + AC_UPLIFT_KWH)
-        co2_g = kwh_per_km * daily_km * GRID_EF_KG_PER_KWH * 1000.0
+        co2_g = kwh_per_km * daily_km * GRID_EF_KG_PER_KWH * 1000.0 * load_c
         co2_g = co2_g if "CO2" in target_pollutants else 0.0
         for pol, grams in (("CO2", co2_g), ("NOx", 0.0), ("PM", 0.0)):
             out[f"{pol}_kg"]    = round(grams / 1000.0, 4)
             out[f"{pol}_g_km"]  = round(grams / daily_km, 2) if daily_km else 0.0
             out[f"{pol}_g_pkm"] = round(grams / passenger_km, 2) if (is_revenue and passenger_km) else float("nan")
         out["ac_uplift_kg"] = 0.0
+        if real_world_nox:
+            out["NOx_realworld_kg"] = 0.0
+            out["NOx_realworld_g_km"] = 0.0
+            out["NOx_realworld_g_pkm"] = float("nan") if not (is_revenue and passenger_km) else 0.0
+        if "PM" in target_pollutants:
+            out.update(non_exhaust_pm(bus_cat, fuel, daily_km))
         return pd.Series(out)
 
     # ── 4. Combustion buses: the four components, per pollutant ──
     ac_uplift_g = 0.0
+    nox_total_g = 0.0
     for pol in ("CO2", "NOx", "PM"):
+        # Prefer the real Guidebook curve (High Capacity/Midi, Diesel/CNG) —
+        # it's already fully speed- and Euro-class-corrected, so none of
+        # euro_mults/eng_corr/speed_factor apply on top of it. Age
+        # deterioration is still layered on: it's real fleet wear that the
+        # Guidebook's per-Euro fleet-average curve doesn't itself capture
+        # (documented as a non-COPERT addition elsewhere in this file).
+        # Cold start is skipped when the real curve is used, matching
+        # COPERT's own methodology (buses get no cold-start modelling —
+        # see SECTION 5B). Idling and A/C uplift are still added, since
+        # neither is part of the Guidebook's speed curve either.
+        copert_key = "EC" if pol == "CO2" else pol
+        copert_raw = copert_ef(bus_cat, fuel, copert_key, euro, speed)
+        using_copert = copert_raw is not None and pol in target_pollutants
+
         base_ef = float(fuel_profile.get(pol, 0.0))
-        if pol not in target_pollutants or base_ef == 0.0:
+        if pol not in target_pollutants or (not using_copert and base_ef == 0.0):
             out[f"{pol}_kg"] = 0.0
             out[f"{pol}_g_km"] = 0.0
             out[f"{pol}_g_pkm"] = 0.0
             continue
 
-        # Build the effective emission factor (g/km):
-        ef = base_ef
-        if pol in ("NOx", "PM"):
-            ef *= euro_mults[pol]          # after-treatment quality
-        if pol == "CO2":
-            ef *= eng_corr                 # engine family efficiency
-        ef *= age_mults[pol]               # wear and tear
+        if using_copert:
+            ef = copert_raw * FUEL_CO2_PER_MJ.get(fuel, 0.0) if pol == "CO2" else copert_raw
+            cold_g = 0.0
+            hot_g = ef * age_mults[pol] * daily_km
+        else:
+            # Fallback: simplified system (Mini buses, fuels/Euro classes the
+            # Guidebook extract above doesn't cover).
+            ef = base_ef
+            if pol in ("NOx", "PM"):
+                ef *= euro_mults[pol]          # after-treatment quality
+            if pol == "CO2":
+                ef *= eng_corr                 # engine family efficiency
+            ef *= age_mults[pol]               # wear and tear
 
-        # HOT RUNNING — speed correction depends on methodology:
-        use_speed = (methodology == "COPERT") or (methodology == "Hybrid" and pol != "CO2")
-        hot_g = ef * (speed_factor(pol, speed) if use_speed else 1.0) * daily_km
+            use_speed = (methodology == "COPERT") or (methodology == "Hybrid" and pol != "CO2")
+            hot_g = ef * (speed_factor(pol, speed) if use_speed else 1.0) * daily_km
 
-        # COLD START — once per day, shrinks with warm ambient temp:
-        cold_km = min(trip_km, COLD_START_KM)
-        cold_g = ef * cold_km * (cold_start_multiplier(pol, ambient_c) - 1.0) * COLD_STARTS_PER_DAY
+            cold_km = min(trip_km, COLD_START_KM)
+            cold_g = ef * cold_km * (cold_start_multiplier(pol, ambient_c) - 1.0) * COLD_STARTS_PER_DAY
 
         # IDLING — grams/minute × minutes:
         idle_g = IDLING_EF.get(bus_cat, {}).get(fuel, {}).get(pol, 0.0) * idle_min
@@ -403,6 +735,8 @@ def calculate_row(row, methodology, target_pollutants, ambient_c=DEFAULT_AMBIENT
             ac_uplift_g = ac_g
 
         total_g = (hot_g + cold_g + idle_g + ac_g) * load_c
+        if pol == "NOx":
+            nox_total_g = total_g
 
         out[f"{pol}_kg"]    = round(total_g / 1000.0, 4)
         out[f"{pol}_g_km"]  = round(total_g / daily_km, 2) if daily_km else 0.0
@@ -411,6 +745,17 @@ def calculate_row(row, methodology, target_pollutants, ambient_c=DEFAULT_AMBIENT
         out[f"{pol}_g_pkm"] = round(total_g / passenger_km, 2) if (is_revenue and passenger_km) else float("nan")
 
     out["ac_uplift_kg"] = round(ac_uplift_g / 1000.0, 4)
+
+    if real_world_nox:
+        rw_mult = real_world_nox_multiplier(euro, fuel)
+        rw_g = nox_total_g * rw_mult
+        out["NOx_realworld_kg"] = round(rw_g / 1000.0, 4)
+        out["NOx_realworld_g_km"] = round(rw_g / daily_km, 2) if daily_km else 0.0
+        out["NOx_realworld_g_pkm"] = round(rw_g / passenger_km, 2) if (is_revenue and passenger_km) else float("nan")
+
+    if "PM" in target_pollutants:
+        out.update(non_exhaust_pm(bus_cat, fuel, daily_km))
+
     return pd.Series(out)
 
 
@@ -431,27 +776,46 @@ def emission_breakdown(row, methodology="Hybrid", ambient_c=DEFAULT_AMBIENT_C):
     engine    = str(row.get("Engine_Model", "")).strip()
     idle_min  = float(row.get("Idle_Minutes", DEFAULT_IDLE_MINUTES) or DEFAULT_IDLE_MINUTES)
 
-    daily_km, trip_km, _pax, _pkm = _derive_day(distance, num_trips, ridership)
+    daily_km, trip_km, pax_per_trip, _pkm = _derive_day(distance, num_trips, ridership)
     fuel_profile = BASE_FACTORS.get(bus_cat, {}).get(fuel, FALLBACK_FACTORS)
+    capacity = int(fuel_profile.get("capacity", 80))
+    load_c = _load_corr(pax_per_trip, capacity)
 
     if fuel == "Electric":
-        kwh_per_km = float(fuel_profile.get("kwh_per_km", 1.5))
+        _copert_mj = copert_ef(bus_cat, fuel, "EC", euro, speed)
+        kwh_per_km = (_copert_mj / 3.6) if _copert_mj is not None else float(fuel_profile.get("kwh_per_km", 1.5))
         if ac_on:
             kwh_per_km *= (1.0 + AC_UPLIFT_KWH)
-        total = kwh_per_km * daily_km * GRID_EF_KG_PER_KWH * 1000.0
+        total = kwh_per_km * daily_km * GRID_EF_KG_PER_KWH * 1000.0 * load_c
         return {"hot_running": 0, "cold_start": 0, "idling": 0, "ac_load": 0,
                 "grid_electric": round(total, 1), "total_g": round(total, 1)}
 
-    ef = (float(fuel_profile.get("CO2", 0.0))
-          * ENGINE_CO2_CORRECTION.get(engine, DEFAULT_ENGINE_CORRECTION)
-          * age_deterioration(age, fuel)["CO2"])
+    # Prefer the real Guidebook curve, same rule as calculate_row(): if it's
+    # available for this category/fuel/Euro combo, it's already fully
+    # speed-corrected and cold start doesn't apply (see SECTION 5B).
+    copert_mj = copert_ef(bus_cat, fuel, "EC", euro, speed)
+    using_copert = copert_mj is not None
 
-    use_speed = (methodology == "COPERT")
-    hot_g  = ef * (speed_factor("CO2", speed) if use_speed else 1.0) * daily_km
-    cold_g = ef * min(trip_km, COLD_START_KM) \
-                * (cold_start_multiplier("CO2", ambient_c) - 1.0) * COLD_STARTS_PER_DAY
+    if using_copert:
+        ef = copert_mj * FUEL_CO2_PER_MJ.get(fuel, 0.0)
+        hot_g = ef * age_deterioration(age, fuel)["CO2"] * daily_km
+        cold_g = 0.0
+    else:
+        ef = (float(fuel_profile.get("CO2", 0.0))
+              * ENGINE_CO2_CORRECTION.get(engine, DEFAULT_ENGINE_CORRECTION)
+              * age_deterioration(age, fuel)["CO2"])
+        use_speed = (methodology == "COPERT")
+        hot_g  = ef * (speed_factor("CO2", speed) if use_speed else 1.0) * daily_km
+        cold_g = ef * min(trip_km, COLD_START_KM) \
+                    * (cold_start_multiplier("CO2", ambient_c) - 1.0) * COLD_STARTS_PER_DAY
+
     idle_g = IDLING_EF.get(bus_cat, {}).get(fuel, {}).get("CO2", 0.0) * idle_min
     ac_g   = (hot_g + idle_g) * AC_UPLIFT_CO2 if ac_on else 0.0
+
+    # Apply the same load-factor correction calculate_row() applies to the
+    # total, per-component, so the breakdown bars shown in Trip Inspector
+    # sum to the same total_g that calculate_row() reports elsewhere.
+    hot_g, cold_g, idle_g, ac_g = (x * load_c for x in (hot_g, cold_g, idle_g, ac_g))
 
     return {"hot_running": round(hot_g, 1), "cold_start": round(cold_g, 1),
             "idling": round(idle_g, 1), "ac_load": round(ac_g, 1),
