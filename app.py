@@ -4,6 +4,10 @@ Modules: Dashboard · Fleet Intelligence · Pollutant Engine · Bus Efficiency �
          Corridor Map · Fleet Health · Forecast · Data Quality · What-If ·
          Trip Inspector · Formula Explainer · Deep Search
 """
+import hmac
+import html as _html
+import time
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -33,6 +37,18 @@ st.set_page_config(
 # ════════════════════════════════════════════════════════
 # 0.5. AUTHENTICATION
 # ════════════════════════════════════════════════════════
+_LOGIN_MAX_ATTEMPTS = 5
+_LOGIN_LOCKOUT_SECONDS = 60
+_LOGIN_DUMMY_SECRET = "x" * 64  # compared against on unknown usernames, so timing can't reveal which usernames exist
+
+
+@st.cache_resource(show_spinner=False)
+def _login_attempts_store():
+    """Shared across every session on this server process — st.session_state
+    would let an attacker reset their own lockout just by opening a new tab."""
+    return {}
+
+
 def check_password():
     """Returns True if the user has a valid password."""
     # Check if user is already logged in during this session
@@ -47,15 +63,29 @@ def check_password():
         submitted = st.form_submit_button("Login")
 
         if submitted:
-            # Check if the username exists in secrets and password matches
-            if "credentials" in st.secrets and username in st.secrets["credentials"]:
-                if st.secrets["credentials"][username] == password:
-                    st.session_state["authenticated"] = True
-                    st.rerun()  # Refresh page to bypass login
-                else:
-                    st.error("Incorrect password.")
+            attempts = _login_attempts_store()
+            now = time.time()
+            recent = [t for t in attempts.get(username, []) if now - t < _LOGIN_LOCKOUT_SECONDS]
+            if len(recent) >= _LOGIN_MAX_ATTEMPTS:
+                st.error(f"Too many attempts. Try again in {_LOGIN_LOCKOUT_SECONDS} seconds.")
+                return False
+
+            creds = st.secrets.get("credentials", {})
+            known = username in creds
+            # Always run a real comparison, even for unknown usernames (against
+            # a fixed dummy secret), and use one generic error message — so a
+            # failed login can't be used to enumerate valid usernames, and the
+            # response time doesn't leak it either.
+            stored = str(creds[username]) if known else _LOGIN_DUMMY_SECRET
+            ok = known and hmac.compare_digest(stored, password)
+
+            if ok:
+                st.session_state["authenticated"] = True
+                attempts.pop(username, None)
+                st.rerun()  # Refresh page to bypass login
             else:
-                st.error("Unknown username.")
+                attempts.setdefault(username, []).append(now)
+                st.error("Invalid username or password.")
     return False
 
 # Stop the app execution here if the user isn't logged in
@@ -334,6 +364,9 @@ EXPECTED_COLS = [
 NEW_COLS = ["Euro_Standard","Vehicle_Age_years","AC_Status","Num_Trips_Today","Engine_Model"]
 ALL_COLS = EXPECTED_COLS + NEW_COLS
 
+MAX_UPLOAD_MB = 20
+MAX_UPLOAD_ROWS = 200_000
+
 PALETTE  = ["#1E73BE","#3ddc84","#5cc8c8","#ff5252","#c9a8ff","#ffd166","#7fb8a8","#8fa49a"]
 PLY_BASE = dict(
     paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
@@ -348,7 +381,7 @@ def fmt_gkm(v): return f"{v:,.1f} {st.session_state.get('eff_unit', 'g/pkm')}"
 
 def badge_html(flag):
     cls = {"Good":"badge-good","Monitor":"badge-monitor","Over Limit":"badge-over"}.get(flag,"badge-na")
-    return f'<span class="badge {cls}">{flag}</span>'
+    return f'<span class="badge {cls}">{_html.escape(str(flag))}</span>'
 
 def gauge_svg(value, good_t, monitor_t, unit="g CO₂/pkm", max_val=None):
     """Renders the signature semicircular instrument-panel gauge used for
@@ -389,7 +422,7 @@ def gauge_svg(value, good_t, monitor_t, unit="g CO₂/pkm", max_val=None):
     </div>"""
 
 def chip(label, cls="chip-gray"):
-    return f'<span class="chip {cls}">{label}</span>'
+    return f'<span class="chip {cls}">{_html.escape(str(label))}</span>'
 
 
 # ════════════════════════════════════════════════════════
@@ -546,7 +579,7 @@ with st.sidebar:
 
     _db_state, _db_msg = db.db_status()
     _db_dot = {"connected": "#3EF2A0", "empty": "#FFC24B", "unconfigured": "#5c7268", "error": "#FF6363"}[_db_state]
-    st.markdown(f'<div style="font-size:11px;color:#8fa49a;padding:2px;"><span style="color:{_db_dot};">●</span> {_db_msg}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size:11px;color:#8fa49a;padding:2px;"><span style="color:{_db_dot};">●</span> {_html.escape(_db_msg)}</div>', unsafe_allow_html=True)
 
     # Global array to hold available items safely
     db_file_options = []
@@ -589,8 +622,9 @@ with st.sidebar:
         with st.expander("🗑 Delete stored items"):
             st.caption("Enter delete password to unlock controls.")
             _pw = st.text_input("Delete password", type="password", key="del_pw")
-            _pw_ok = _pw and _pw == st.secrets.get("delete", {}).get("password", "")
-            
+            _delete_secret = str(st.secrets.get("delete", {}).get("password", ""))
+            _pw_ok = bool(_pw) and bool(_delete_secret) and hmac.compare_digest(_delete_secret, _pw)
+
             # Use the parsed files pool we extracted directly from database profiles above
             if not db_file_options:
                 st.caption("No files discovered in database index.")
@@ -598,7 +632,7 @@ with st.sidebar:
                 with st.container(height=180, border=False):
                     for i, file_name in enumerate(db_file_options):
                         c1, c2 = st.columns([4, 1])
-                        c1.markdown(f"<div style='padding-top:5px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{file_name}</div>", unsafe_allow_html=True)
+                        c1.markdown(f"<div style='padding-top:5px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>{_html.escape(str(file_name))}</div>", unsafe_allow_html=True)
                         if c2.button("🗑️", key=f"del_item_{i}_{file_name[:8]}", disabled=not _pw_ok):
                             res = db.delete_upload(file_name)
                             if res["error"]: st.warning(res["error"])
@@ -606,7 +640,10 @@ with st.sidebar:
                                 st.success("Deleted"); st.cache_data.clear(); st.rerun()
 
             st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-            if st.button("⚠ Wipe Entire Database", disabled=not _pw_ok, use_container_width=True):
+            st.caption("Wiping the whole database is irreversible. Type DELETE to confirm before it can be triggered.")
+            _wipe_confirm = st.text_input("Type DELETE to confirm", key="wipe_confirm")
+            _wipe_ok = _pw_ok and _wipe_confirm.strip() == "DELETE"
+            if st.button("⚠ Wipe Entire Database", disabled=not _wipe_ok, use_container_width=True):
                 res = db.delete_all_trips()
                 if res["error"]: st.warning(res["error"])
                 else: st.success("Database cleared."); st.cache_data.clear(); st.rerun()
@@ -742,8 +779,6 @@ MODULE_INTRO = {
     "Deep Search":       ("📋 Deep Search",
                           "Filter, inspect and export the full calculated manifest as CSV."),
 }
-
-import html as _html
 
 def render_ai_assistant(data):
     """Floating Gemini assistant: FAB bottom-right, chat panel above it.
@@ -926,6 +961,9 @@ def _fuzzy_rename(df: pd.DataFrame, required: list, optional: list) -> tuple:
 def _read_raw_file(name, fbytes):
     """Read a single uploaded file (CSV or Excel) into a raw DataFrame."""
     import io
+    size_mb = len(fbytes) / (1024 * 1024)
+    if size_mb > MAX_UPLOAD_MB:
+        return None, f"File is {size_mb:.1f} MB, over the {MAX_UPLOAD_MB} MB limit."
     ext = name.lower().rsplit(".", 1)[-1] if "." in name else ""
     if ext in ("xlsx", "xls"):
         try:
@@ -942,6 +980,8 @@ def _read_raw_file(name, fbytes):
                 continue
         if df is None:
             return None, "Could not decode CSV (tried UTF-8, Latin-1, CP1252)"
+    if len(df) > MAX_UPLOAD_ROWS:
+        return None, f"File has {len(df):,} rows, over the {MAX_UPLOAD_ROWS:,} row limit."
     df.columns = [str(c).lstrip("\ufeff").strip() for c in df.columns]
     return df, None
 
@@ -1180,7 +1220,7 @@ if data_source == "database":
 elif file_log:
     log_rows = "".join(
         f'<div class="board-row" style="grid-template-columns:1fr 100px 90px;">'
-        f'<div><div class="route">{f["name"]}</div></div>'
+        f'<div><div class="route">{_html.escape(str(f["name"]))}</div></div>'
         f'<div class="figure">{f["rows"]:,} rows</div>'
         f'<div style="text-align:right;"><span class="status-chip {"good" if f["status"]=="ok" else "over"}">'
         f'{"LOADED" if f["status"]=="ok" else "FAILED"}</span></div></div>'
@@ -1199,7 +1239,7 @@ elif file_log:
 # ── Notify user of any auto-renames ──
 if auto_log:
     rename_chips = " &nbsp;" .join(
-        f'<code style="font-size:11px;background:var(--autorename-bg);color:var(--autorename-text);padding:2px 7px;border-radius:3px;">{orig}</code> → <code style="font-size:11px;background:var(--badge-good-bg);color:var(--badge-good-text);padding:2px 7px;border-radius:3px;">{canon}</code>'
+        f'<code style="font-size:11px;background:var(--autorename-bg);color:var(--autorename-text);padding:2px 7px;border-radius:3px;">{_html.escape(str(orig))}</code> → <code style="font-size:11px;background:var(--badge-good-bg);color:var(--badge-good-text);padding:2px 7px;border-radius:3px;">{_html.escape(str(canon))}</code>'
         for canon, orig in auto_log.items()
     )
     st.markdown(
@@ -1603,7 +1643,7 @@ if selected_module == "Dashboard":
                       .reset_index().sort_values("CO2_kg", ascending=False).head(10))
             comp = fdf["Compliance"].value_counts()
             _rows = "".join(
-                f"<tr><td>{r.Bus_ID}</td><td>{r.Operator}</td>"
+                f"<tr><td>{_html.escape(str(r.Bus_ID))}</td><td>{_html.escape(str(r.Operator))}</td>"
                 f"<td style='text-align:right'>{r.CO2_kg:,.0f}</td></tr>"
                 for r in top.itertuples())
             _dates = f"{fdf['Date'].astype(str).min()} → {fdf['Date'].astype(str).max()}"
@@ -1613,7 +1653,7 @@ if selected_module == "Dashboard":
                         methodology, ambient_c, corridor_fn=globals().get("corridor_aggregate"))
                 _n, _okn = ai_engine.report_narrative(_p, ai_engine.fingerprint(fdf))
                 if _okn:
-                    _ai_para = f"<h2>Executive summary</h2><p>{_n}</p>"
+                    _ai_para = f"<h2>Executive summary</h2><p>{_html.escape(_n)}</p>"
             html = f"""<!DOCTYPE html><html><head><meta charset='utf-8'>
 <title>{APP_NAME} — Summary</title><style>
 body{{font-family:Arial,Helvetica,sans-serif;color:#16211c;margin:36px;}}
@@ -1878,6 +1918,11 @@ elif selected_module == "Bus Efficiency":
     with c2:
         st.markdown('<div class="sec-label">Compliance table</div>', unsafe_allow_html=True)
         display = eff[["Bus_Category","Fuel_Type","Avg_CO2_g_pkm","Compliance"]].copy()
+        # escape=False below only skips escaping for the whole table, and
+        # "Status" is HTML we generated ourselves (safe) — but Category/Fuel
+        # come from the uploaded manifest, so they're escaped explicitly here.
+        display["Bus_Category"] = display["Bus_Category"].astype(str).map(_html.escape)
+        display["Fuel_Type"] = display["Fuel_Type"].astype(str).map(_html.escape)
         display["Status"] = display["Compliance"].apply(badge_html)
         st.markdown(
             display[["Bus_Category","Fuel_Type","Avg_CO2_g_pkm","Status"]]
@@ -1924,7 +1969,7 @@ elif selected_module == "Bus Efficiency":
         st.markdown('<div class="sec-label">Recommended actions</div>', unsafe_allow_html=True)
         for _, r in worst.iterrows():
             st.markdown(
-                f'<div class="tip">🔴 <strong>{r["Bus_Category"]} / {r["Fuel_Type"]}</strong> '
+                f'<div class="tip">🔴 <strong>{_html.escape(str(r["Bus_Category"]))} / {_html.escape(str(r["Fuel_Type"]))}</strong> '
                 f'averaging <strong>{r["Avg_CO2_g_pkm"]:.1f} g/pkm</strong>. '
                 f'Upgrade to Euro V or VI (−50–95% NOx), reduce terminal idle time, '
                 f'or increase ridership via dynamic scheduling.</div>', unsafe_allow_html=True)
@@ -2341,7 +2386,7 @@ elif selected_module == "Trip Inspector":
             pct = (float(trip["age_co2_mult"]) - 1) * 100
             st.markdown(f'<div class="tip">🕐 Age deterioration adds <strong>+{pct:.1f}%</strong> to base CO₂ factors.</div>', unsafe_allow_html=True)
         if "euro_nox_mult" in trip and "NOx" in target_pollutants:
-            st.markdown(f'<div class="tip">🏷 Euro {trip.get("Euro_Standard","")} NOx multiplier: <strong>{float(trip["euro_nox_mult"]):.2f}×</strong> vs Euro III baseline.</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="tip">🏷 Euro {_html.escape(str(trip.get("Euro_Standard","")))} NOx multiplier: <strong>{float(trip["euro_nox_mult"]):.2f}×</strong> vs Euro III baseline.</div>', unsafe_allow_html=True)
         if str(trip.get("AC_Status","")).lower() in ("true","1") and "ac_uplift_kg" in trip:
             st.markdown(f'<div class="tip">❄️ A/C ON adds <strong>{float(trip["ac_uplift_kg"])*1000:.1f} g CO₂</strong> (+8% of hot running).</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -2429,7 +2474,7 @@ elif selected_module == "Formula Explainer":
         st.latex(r"EF_{base} = \text{BASE\_FACTORS}[\text{category}][\text{fuel}][\text{CO}_2]")
         st.code(f"EF_base = BASE_FACTORS['{bus_cat}']['{fuel}']['CO2'] = {base_co2:.1f} g/km", language=None)
         st.markdown(f'<div class="tip">Reference Euro III diesel/petrol/CNG/biogas factor for a '
-                    f'<strong>{bus_cat}</strong> bus on <strong>{fuel}</strong>, from IPCC 2006 Tier 2 + '
+                    f'<strong>{_html.escape(str(bus_cat))}</strong> bus on <strong>{_html.escape(str(fuel))}</strong>, from IPCC 2006 Tier 2 + '
                     f'COPERT V West-Africa calibration. Capacity assumed: {capacity} seats.</div>',
                     unsafe_allow_html=True)
 

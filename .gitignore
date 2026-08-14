@@ -1,0 +1,21 @@
+# Python / backend
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/.env
+.env
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Frontend (frontend/ has its own .gitignore for node_modules etc., this
+# covers the case someone runs npm from the repo root by mistake too)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

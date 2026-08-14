@@ -1,5 +1,9 @@
 # Fleet Emissions Console — Setup & Architecture
 
+> A React + FastAPI rewrite now lives alongside this Streamlit app in `backend/` and
+> `frontend/` — see [MIGRATION.md](MIGRATION.md) for what changed and how to run it. This
+> file still documents the original Streamlit app, which is unchanged and still works.
+
 ## Repo layout
 ```
 app.py                  Streamlit interface (12 modules)
